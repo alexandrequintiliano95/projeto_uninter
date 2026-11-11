@@ -4,13 +4,13 @@ from os import getenv
 import jwt
 from fastapi import Depends, FastAPI, HTTPException, Query, status
 from fastapi.security import OAuth2PasswordBearer
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from pwdlib import PasswordHash
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .db import SessionLocal
-from .models import Produto, ProdutoUnidade, Unidade, Usuario
+from .models import Auditoria, ItemPedido, Pagamento, Pedido, Produto, ProdutoUnidade, Unidade, Usuario
 
 
 app = FastAPI(title="API Raízes do Nordeste", version="0.1.0")
@@ -50,6 +50,25 @@ class CardapioItem(BaseModel):
     saldo_disponivel: int
 
 
+class PedidoItemRequest(BaseModel):
+    produto_id: int = Field(gt=0)
+    quantidade: int = Field(gt=0)
+
+
+class PedidoRequest(BaseModel):
+    unidade_id: int = Field(gt=0)
+    canal_pedido: str
+    itens: list[PedidoItemRequest] = Field(min_length=1)
+
+
+class PagamentoRequest(BaseModel):
+    resultado: str
+
+
+class StatusRequest(BaseModel):
+    status: str
+
+
 def db_session():
     session = SessionLocal()
     try:
@@ -86,6 +105,49 @@ def active_user(user: Usuario = Depends(current_user)) -> Usuario:
     return user
 
 
+def audit(session: Session, user_id: int | None, unidade_id: int | None, action: str, entity: str, entity_id: int, details: str = "") -> None:
+    session.add(Auditoria(usuario_id=user_id, unidade_id=unidade_id, acao=action, tipo_entidade=entity, entidade_id=entity_id, detalhes=details, criado_em=datetime.now(timezone.utc).replace(tzinfo=None)))
+
+
+def expire_orders(session: Session, unidade_id: int | None = None) -> None:
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    query = select(Pedido).where(Pedido.status == "AGUARDANDO_PAGAMENTO", Pedido.expira_em <= now)
+    if unidade_id:
+        query = query.where(Pedido.unidade_id == unidade_id)
+    for order in session.scalars(query):
+        for item in session.scalars(select(ItemPedido).where(ItemPedido.pedido_id == order.id)):
+            offer = session.get(ProdutoUnidade, item.produto_unidade_id)
+            if offer:
+                offer.saldo_livre += item.quantidade
+                offer.saldo_reservado -= item.quantidade
+        order.status = "CANCELADO"
+        order.motivo_cancelamento = "PRAZO_EXPIRADO"
+        order.atualizado_em = now
+        audit(session, None, order.unidade_id, "PEDIDO_EXPIRADO", "PEDIDO", order.id)
+
+
+def ensure_order_access(order: Pedido, user: Usuario) -> None:
+    if user.perfil == "CLIENTE" and order.cliente_id != user.id:
+        raise error("PEDIDO_NAO_ENCONTRADO", "Pedido não encontrado.", status.HTTP_404_NOT_FOUND)
+    if user.perfil != "CLIENTE" and order.unidade_id != user.unidade_id:
+        raise error("PEDIDO_NAO_ENCONTRADO", "Pedido não encontrado.", status.HTTP_404_NOT_FOUND)
+
+
+def order_payload(session: Session, order: Pedido) -> dict:
+    items = list(session.scalars(select(ItemPedido).where(ItemPedido.pedido_id == order.id).order_by(ItemPedido.id)))
+    return {
+        "id": order.id,
+        "unidade_id": order.unidade_id,
+        "cliente_id": order.cliente_id,
+        "canal_pedido": order.canal_pedido,
+        "status": order.status,
+        "total_centavos": order.total_centavos,
+        "motivo_cancelamento": order.motivo_cancelamento,
+        "expira_em": order.expira_em.isoformat() + "Z",
+        "itens": [{"produto_id": item.produto_unidade_id, "nome": item.nome_produto, "quantidade": item.quantidade, "preco_unitario_centavos": item.preco_unitario_centavos} for item in items],
+    }
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -118,3 +180,126 @@ def cardapio(unidade_id: int, page: int = Query(1, ge=1), limit: int = Query(20,
         .limit(limit)
     )
     return [CardapioItem(produto_id=offer.produto_id, nome=product.nome, descricao=product.descricao, preco_centavos=offer.preco_centavos, saldo_disponivel=offer.saldo_livre) for offer, product in rows]
+
+
+@app.post("/pedidos", status_code=status.HTTP_201_CREATED)
+def create_order(data: PedidoRequest, user: Usuario = Depends(active_user), session: Session = Depends(db_session)) -> dict:
+    if data.canal_pedido not in {"APP", "WEB", "PICKUP", "BALCAO", "TOTEM"}:
+        raise error("CANAL_INVALIDO", "Canal de pedido inválido.", status.HTTP_422_UNPROCESSABLE_CONTENT)
+    if user.perfil == "CLIENTE" and data.canal_pedido not in {"APP", "WEB", "PICKUP"}:
+        raise error("CANAL_NAO_PERMITIDO", "Canal não permitido para este perfil.", status.HTTP_403_FORBIDDEN)
+    if user.perfil in {"ATENDENTE", "GERENTE"} and data.canal_pedido not in {"BALCAO", "TOTEM", "PICKUP"}:
+        raise error("CANAL_NAO_PERMITIDO", "Canal não permitido para este perfil.", status.HTTP_403_FORBIDDEN)
+    if user.perfil == "COZINHA":
+        raise error("PERFIL_SEM_PERMISSAO", "Perfil não pode criar pedidos.", status.HTTP_403_FORBIDDEN)
+    if user.perfil != "CLIENTE" and user.unidade_id != data.unidade_id:
+        raise error("UNIDADE_NAO_PERMITIDA", "Operação fora da unidade do usuário.", status.HTTP_403_FORBIDDEN)
+    unidade = session.get(Unidade, data.unidade_id)
+    if not unidade or not unidade.ativa:
+        raise error("UNIDADE_NAO_ENCONTRADA", "Unidade não encontrada.", status.HTTP_404_NOT_FOUND)
+    expire_orders(session, data.unidade_id)
+    product_ids = [item.produto_id for item in data.itens]
+    if len(product_ids) != len(set(product_ids)):
+        raise error("ITENS_DUPLICADOS", "O mesmo produto não pode aparecer duas vezes.", status.HTTP_422_UNPROCESSABLE_CONTENT)
+    offers = {offer.produto_id: offer for offer in session.scalars(select(ProdutoUnidade).where(ProdutoUnidade.unidade_id == data.unidade_id, ProdutoUnidade.produto_id.in_(product_ids), ProdutoUnidade.ativo.is_(True)))}
+    if len(offers) != len(product_ids):
+        raise error("PRODUTO_INDISPONIVEL", "Produto inexistente ou indisponível na unidade.", status.HTTP_404_NOT_FOUND)
+    products = {product.id: product for product in session.scalars(select(Produto).where(Produto.id.in_(product_ids), Produto.ativo.is_(True)))}
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    total = 0
+    for item in data.itens:
+        offer = offers[item.produto_id]
+        if offer.saldo_livre < item.quantidade:
+            raise error("ESTOQUE_INSUFICIENTE", "Não há quantidade suficiente para um ou mais itens.", status.HTTP_409_CONFLICT)
+        total += offer.preco_centavos * item.quantidade
+    order = Pedido(unidade_id=data.unidade_id, criado_por_id=user.id, cliente_id=user.id if user.perfil == "CLIENTE" else None, canal_pedido=data.canal_pedido, status="AGUARDANDO_PAGAMENTO", total_centavos=total, criado_em=now, atualizado_em=now, expira_em=now + timedelta(minutes=15))
+    session.add(order)
+    session.flush()
+    for item in data.itens:
+        offer = offers[item.produto_id]
+        offer.saldo_livre -= item.quantidade
+        offer.saldo_reservado += item.quantidade
+        session.add(ItemPedido(pedido_id=order.id, produto_unidade_id=offer.id, nome_produto=products[item.produto_id].nome, quantidade=item.quantidade, preco_unitario_centavos=offer.preco_centavos))
+    audit(session, user.id, data.unidade_id, "PEDIDO_CRIADO", "PEDIDO", order.id)
+    session.commit()
+    return order_payload(session, order)
+
+
+@app.get("/pedidos/{pedido_id}")
+def get_order(pedido_id: int, user: Usuario = Depends(active_user), session: Session = Depends(db_session)) -> dict:
+    expire_orders(session, user.unidade_id if user.perfil != "CLIENTE" else None)
+    order = session.get(Pedido, pedido_id)
+    if not order:
+        raise error("PEDIDO_NAO_ENCONTRADO", "Pedido não encontrado.", status.HTTP_404_NOT_FOUND)
+    ensure_order_access(order, user)
+    session.commit()
+    return order_payload(session, order)
+
+
+@app.get("/pedidos")
+def list_orders(canal_pedido: str | None = None, pedido_status: str | None = None, page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100), user: Usuario = Depends(active_user), session: Session = Depends(db_session)) -> list[dict]:
+    expire_orders(session, user.unidade_id if user.perfil != "CLIENTE" else None)
+    query = select(Pedido).order_by(Pedido.id.desc()).offset((page - 1) * limit).limit(limit)
+    if user.perfil == "CLIENTE":
+        query = query.where(Pedido.cliente_id == user.id)
+    else:
+        query = query.where(Pedido.unidade_id == user.unidade_id)
+    if canal_pedido:
+        query = query.where(Pedido.canal_pedido == canal_pedido)
+    if pedido_status:
+        query = query.where(Pedido.status == pedido_status)
+    orders = list(session.scalars(query))
+    session.commit()
+    return [order_payload(session, order) for order in orders]
+
+
+@app.post("/pedidos/{pedido_id}/pagamentos/mock")
+def mock_payment(pedido_id: int, data: PagamentoRequest, user: Usuario = Depends(active_user), session: Session = Depends(db_session)) -> dict:
+    if data.resultado not in {"APROVADO", "RECUSADO"}:
+        raise error("RESULTADO_INVALIDO", "Resultado deve ser APROVADO ou RECUSADO.", status.HTTP_422_UNPROCESSABLE_CONTENT)
+    order = session.get(Pedido, pedido_id)
+    if not order:
+        raise error("PEDIDO_NAO_ENCONTRADO", "Pedido não encontrado.", status.HTTP_404_NOT_FOUND)
+    ensure_order_access(order, user)
+    expire_orders(session, order.unidade_id)
+    session.refresh(order)
+    existing = session.scalar(select(Pagamento).where(Pagamento.pedido_id == order.id))
+    if existing:
+        if existing.status != data.resultado:
+            raise error("PAGAMENTO_IMUTAVEL", "O pagamento já possui outro resultado.", status.HTTP_409_CONFLICT)
+        session.commit()
+        return {"pedido_id": order.id, "status": existing.status, "pedido_status": order.status}
+    if order.status != "AGUARDANDO_PAGAMENTO":
+        raise error("PEDIDO_SEM_PAGAMENTO", "Pedido não aguarda pagamento.", status.HTTP_409_CONFLICT)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    session.add(Pagamento(pedido_id=order.id, status=data.resultado, valor_centavos=order.total_centavos, criado_em=now))
+    for item in session.scalars(select(ItemPedido).where(ItemPedido.pedido_id == order.id)):
+        offer = session.get(ProdutoUnidade, item.produto_unidade_id)
+        offer.saldo_reservado -= item.quantidade
+        if data.resultado == "APROVADO":
+            pass
+        else:
+            offer.saldo_livre += item.quantidade
+    order.status = "CONFIRMADO" if data.resultado == "APROVADO" else "CANCELADO"
+    order.motivo_cancelamento = None if data.resultado == "APROVADO" else "PAGAMENTO_RECUSADO"
+    order.atualizado_em = now
+    audit(session, user.id, order.unidade_id, "PAGAMENTO_MOCK", "PEDIDO", order.id, data.resultado)
+    session.commit()
+    return {"pedido_id": order.id, "status": data.resultado, "pedido_status": order.status}
+
+
+@app.patch("/pedidos/{pedido_id}/status")
+def update_order_status(pedido_id: int, data: StatusRequest, user: Usuario = Depends(active_user), session: Session = Depends(db_session)) -> dict:
+    transitions = {"CONFIRMADO": "EM_PREPARO", "EM_PREPARO": "PRONTO", "PRONTO": "ENTREGUE"}
+    order = session.get(Pedido, pedido_id)
+    if not order:
+        raise error("PEDIDO_NAO_ENCONTRADO", "Pedido não encontrado.", status.HTTP_404_NOT_FOUND)
+    ensure_order_access(order, user)
+    allowed_roles = {"CONFIRMADO": {"COZINHA", "GERENTE"}, "EM_PREPARO": {"COZINHA", "GERENTE"}, "PRONTO": {"ATENDENTE", "GERENTE"}}
+    if data.status not in transitions or order.status != data.status or user.perfil not in allowed_roles[data.status]:
+        raise error("TRANSICAO_INVALIDA", "Transição de status não permitida.", status.HTTP_409_CONFLICT)
+    order.status = transitions[data.status]
+    order.atualizado_em = datetime.now(timezone.utc).replace(tzinfo=None)
+    audit(session, user.id, order.unidade_id, "STATUS_ATUALIZADO", "PEDIDO", order.id, order.status)
+    session.commit()
+    return order_payload(session, order)

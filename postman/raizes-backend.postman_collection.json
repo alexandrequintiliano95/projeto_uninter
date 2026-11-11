@@ -1,0 +1,24 @@
+{
+  "info": {
+    "name": "Raizes do Nordeste - Backend",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {"key": "baseUrl", "value": "http://127.0.0.1:8000"},
+    {"key": "token", "value": ""},
+    {"key": "pedidoId", "value": "1"}
+  ],
+  "item": [
+    {"name": "T01 Health", "request": {"method": "GET", "url": "{{baseUrl}}/health"}},
+    {"name": "T02 Login válido", "event": [{"listen": "test", "script": {"exec": ["pm.test('200', () => pm.response.to.have.status(200));", "pm.collectionVariables.set('token', pm.response.json().access_token);"]}}], "request": {"method": "POST", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\"email\":\"cliente@raizes.local\",\"senha\":\"Cliente@123\"}"}, "url": "{{baseUrl}}/auth/login"}},
+    {"name": "T03 Sem token", "request": {"method": "GET", "url": "{{baseUrl}}/pedidos"}},
+    {"name": "T04 Unidades", "request": {"method": "GET", "url": "{{baseUrl}}/unidades"}},
+    {"name": "T05 Cardápio", "request": {"method": "GET", "url": "{{baseUrl}}/unidades/1/cardapio"}},
+    {"name": "T06 Criar pedido", "request": {"method": "POST", "header": [{"key": "Authorization", "value": "Bearer {{token}}"}, {"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\"unidade_id\":1,\"canal_pedido\":\"APP\",\"itens\":[{\"produto_id\":1,\"quantidade\":1}]}"}, "url": "{{baseUrl}}/pedidos"}},
+    {"name": "T07 Canal inválido", "request": {"method": "POST", "header": [{"key": "Authorization", "value": "Bearer {{token}}"}, {"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\"unidade_id\":1,\"canal_pedido\":\"INVALIDO\",\"itens\":[{\"produto_id\":1,\"quantidade\":1}]}"}, "url": "{{baseUrl}}/pedidos"}},
+    {"name": "T08 Consultar pedido", "request": {"method": "GET", "header": [{"key": "Authorization", "value": "Bearer {{token}}"}], "url": "{{baseUrl}}/pedidos/{{pedidoId}}"}},
+    {"name": "T09 Pagamento aprovado", "request": {"method": "POST", "header": [{"key": "Authorization", "value": "Bearer {{token}}"}, {"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\"resultado\":\"APROVADO\"}"}, "url": "{{baseUrl}}/pedidos/{{pedidoId}}/pagamentos/mock"}},
+    {"name": "T10 Pagamento recusado", "request": {"method": "POST", "header": [{"key": "Authorization", "value": "Bearer {{token}}"}, {"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\"resultado\":\"RECUSADO\"}"}, "url": "{{baseUrl}}/pedidos/{{pedidoId}}/pagamentos/mock"}},
+    {"name": "T11 Filtro por canal", "request": {"method": "GET", "header": [{"key": "Authorization", "value": "Bearer {{token}}"}], "url": "{{baseUrl}}/pedidos?canal_pedido=APP"}}
+  ]
+}
