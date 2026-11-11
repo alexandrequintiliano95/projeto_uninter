@@ -22,4 +22,12 @@ python seed.py
 
 O banco local será criado em `raizes.db`. O seed cria duas unidades, três produtos, cinco usuários e ofertas com estoque. As senhas são fictícias e servem apenas para os testes locais.
 
+## API local
+
+```powershell
+uvicorn app.main:app --reload
+```
+
+A documentação interativa fica em `http://127.0.0.1:8000/docs`.
+
 Próxima etapa: criar os endpoints da API usando os modelos deste banco.
