@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .db import SessionLocal
-from .models import Auditoria, ItemPedido, Pagamento, Pedido, Produto, ProdutoUnidade, Unidade, Usuario
+from .models import Auditoria, ConsentimentoEvento, ItemPedido, Pagamento, Pedido, Produto, ProdutoUnidade, Unidade, Usuario
 
 
 app = FastAPI(title="API Raízes do Nordeste", version="0.1.0")
@@ -67,6 +67,12 @@ class PagamentoRequest(BaseModel):
 
 class StatusRequest(BaseModel):
     status: str
+
+
+class ConsentimentoRequest(BaseModel):
+    finalidade: str
+    concedido: bool
+    versao_termo: str = "v1"
 
 
 def db_session():
@@ -303,3 +309,35 @@ def update_order_status(pedido_id: int, data: StatusRequest, user: Usuario = Dep
     audit(session, user.id, order.unidade_id, "STATUS_ATUALIZADO", "PEDIDO", order.id, order.status)
     session.commit()
     return order_payload(session, order)
+
+
+@app.get("/me/consentimentos")
+def list_consents(user: Usuario = Depends(active_user), session: Session = Depends(db_session)) -> list[dict]:
+    events = list(session.scalars(select(ConsentimentoEvento).where(ConsentimentoEvento.usuario_id == user.id).order_by(ConsentimentoEvento.finalidade, ConsentimentoEvento.id.desc())))
+    latest: dict[str, ConsentimentoEvento] = {}
+    for event in events:
+        latest.setdefault(event.finalidade, event)
+    return [{"finalidade": event.finalidade, "concedido": event.concedido, "versao_termo": event.versao_termo, "criado_em": event.criado_em.isoformat() + "Z"} for event in latest.values()]
+
+
+@app.post("/me/consentimentos")
+def save_consent(data: ConsentimentoRequest, user: Usuario = Depends(active_user), session: Session = Depends(db_session)) -> dict:
+    if user.perfil != "CLIENTE":
+        raise error("PERFIL_SEM_PERMISSAO", "Somente clientes gerenciam seus consentimentos.", status.HTTP_403_FORBIDDEN)
+    if data.finalidade not in {"FIDELIDADE", "MARKETING"}:
+        raise error("FINALIDADE_INVALIDA", "Finalidade de consentimento inválida.", status.HTTP_422_UNPROCESSABLE_CONTENT)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    event = ConsentimentoEvento(usuario_id=user.id, finalidade=data.finalidade, concedido=data.concedido, versao_termo=data.versao_termo, criado_em=now)
+    session.add(event)
+    session.flush()
+    audit(session, user.id, None, "CONSENTIMENTO_ATUALIZADO", "CONSENTIMENTO", event.id, data.finalidade)
+    session.commit()
+    return {"id": event.id, "finalidade": event.finalidade, "concedido": event.concedido, "versao_termo": event.versao_termo, "criado_em": now.isoformat() + "Z"}
+
+
+@app.get("/auditoria")
+def list_audit(user: Usuario = Depends(active_user), session: Session = Depends(db_session)) -> list[dict]:
+    if user.perfil != "GERENTE":
+        raise error("PERFIL_SEM_PERMISSAO", "Somente gerentes consultam auditoria.", status.HTTP_403_FORBIDDEN)
+    events = session.scalars(select(Auditoria).where(Auditoria.unidade_id == user.unidade_id).order_by(Auditoria.id.desc()).limit(100))
+    return [{"id": event.id, "acao": event.acao, "tipo_entidade": event.tipo_entidade, "entidade_id": event.entidade_id, "detalhes": event.detalhes, "criado_em": event.criado_em.isoformat() + "Z"} for event in events]

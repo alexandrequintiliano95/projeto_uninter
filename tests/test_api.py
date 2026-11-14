@@ -58,3 +58,13 @@ def test_kitchen_advances_paid_order():
     response = client.patch(f"/pedidos/{order_id}/status", headers=kitchen_headers, json={"status": "CONFIRMADO"})
     assert response.status_code == 200
     assert response.json()["status"] == "EM_PREPARO"
+
+
+def test_client_consent_and_manager_audit():
+    client_headers = {"Authorization": f"Bearer {token('cliente@raizes.local', 'Cliente@123')}"}
+    consent = client.post("/me/consentimentos", headers=client_headers, json={"finalidade": "FIDELIDADE", "concedido": True, "versao_termo": "v1"})
+    assert consent.status_code == 200
+    assert client.get("/me/consentimentos", headers=client_headers).json()[0]["concedido"] is True
+    manager_headers = {"Authorization": f"Bearer {token('gerente.recife@raizes.local', 'Gerente@123')}"}
+    assert client.get("/auditoria", headers=manager_headers).status_code == 200
+    assert client.get("/auditoria", headers=client_headers).status_code == 403

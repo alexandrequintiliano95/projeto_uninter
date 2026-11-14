@@ -147,6 +147,28 @@ Transições aceitas: `CONFIRMADO` para `EM_PREPARO` pela cozinha ou gerente, `E
 
 Erro: `409` para transição ou perfil incompatível.
 
+### GET `/me/consentimentos`
+
+Lista o último evento de consentimento do cliente autenticado por finalidade.
+
+### POST `/me/consentimentos`
+
+Registra concessão ou revogação de consentimento. A compra não depende desse registro.
+
+Request:
+
+```json
+{"finalidade":"FIDELIDADE","concedido":true,"versao_termo":"v1"}
+```
+
+Erros: `401`, `403` para funcionário e `422` para finalidade inválida.
+
+### GET `/auditoria`
+
+Lista até 100 ações da própria unidade. Disponível apenas para gerente. Senhas, tokens e e-mails não são retornados.
+
+Erro: `403` para outros perfis.
+
 ## Fluxo principal reproduzido
 
 1. Fazer login como cliente.
