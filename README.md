@@ -9,6 +9,8 @@ Permissões, fluxo de status, banco, migração, seed e primeira versão da API 
 - [Modelo inicial: permissões, status e DER](docs/MODELO.md)
 - [Plano de execução](PLAN.md)
 - [Registro da revisão do plano](PLAN-REVIEW-LOG.md)
+- [Contrato da API](docs/API.md)
+- [Diagramas da solução](docs/DIAGRAMAS.md)
 
 ## Banco inicial
 
