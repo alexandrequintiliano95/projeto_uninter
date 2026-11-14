@@ -9,7 +9,7 @@ def seed() -> None:
     password = PasswordHash.recommended()
     with SessionLocal.begin() as session:
         if session.scalar(select(Unidade.id).limit(1)):
-            print("Seed já aplicado")
+            print("Seed já aplicado!")
             return
         unidade_a = Unidade(nome="Raízes Recife Centro", cidade="Recife", uf="PE")
         unidade_b = Unidade(nome="Raízes Caruaru", cidade="Caruaru", uf="PE")
