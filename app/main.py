@@ -3,9 +3,9 @@
 from fastapi import FastAPI
 
 from app.api.erros import registrar_tratadores
-from app.api.rotas import auditoria, auth, catalogo, consentimentos, pedidos, saude
+from app.api.rotas import auditoria, auth, catalogo, consentimentos, estoque, pedidos, saude
 
 app = FastAPI(title="API Raízes do Nordeste", version="0.1.0")
 registrar_tratadores(app)
-for modulo in (saude, auth, catalogo, pedidos, consentimentos, auditoria):
+for modulo in (saude, auth, catalogo, pedidos, estoque, consentimentos, auditoria):
     app.include_router(modulo.router)

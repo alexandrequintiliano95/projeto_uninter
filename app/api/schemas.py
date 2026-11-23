@@ -1,11 +1,13 @@
 """Modelos Pydantic de entrada e saída. Datas saem em UTC no formato ISO 8601 com sufixo Z."""
 
 from datetime import datetime
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
+from app.application.estoque import MovimentacaoDetalhada
 from app.application.pedidos import PedidoDetalhado
-from app.domain.enums import CanalPedido, CenarioPagamento, FinalidadeConsentimento, ResultadoPagamento, StatusPedido
+from app.domain.enums import CanalPedido, CenarioPagamento, FinalidadeConsentimento, ResultadoPagamento, StatusPedido, TipoMovimentacao
 
 
 def utc_iso(valor: datetime) -> str:
@@ -126,3 +128,38 @@ class AuditoriaResponse(BaseModel):
     entidade_id: int
     detalhes: str
     criado_em: str
+
+
+class MovimentacaoRequest(BaseModel):
+    produto_id: int = Field(gt=0)
+    tipo: TipoMovimentacao = Field(description="ENTRADA soma ao saldo livre; SAIDA subtrai, sem nunca retirar itens reservados.")
+    quantidade: int = Field(gt=0)
+    motivo: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=200)] = Field(description="Obrigatório: por que o estoque mudou (ex.: reposição, perda, avaria).")
+
+
+class MovimentacaoResponse(BaseModel):
+    id: int
+    unidade_id: int
+    produto_id: int
+    tipo: TipoMovimentacao
+    quantidade: int
+    motivo: str
+    saldo_livre_anterior: int
+    saldo_livre_novo: int
+    usuario_id: int
+    criado_em: str
+
+    @classmethod
+    def de(cls, movimentacao: MovimentacaoDetalhada) -> "MovimentacaoResponse":
+        return cls(
+            id=movimentacao.id,
+            unidade_id=movimentacao.unidade_id,
+            produto_id=movimentacao.produto_id,
+            tipo=movimentacao.tipo,
+            quantidade=movimentacao.quantidade,
+            motivo=movimentacao.motivo,
+            saldo_livre_anterior=movimentacao.saldo_livre_anterior,
+            saldo_livre_novo=movimentacao.saldo_livre_novo,
+            usuario_id=movimentacao.usuario_id,
+            criado_em=utc_iso(movimentacao.criado_em),
+        )

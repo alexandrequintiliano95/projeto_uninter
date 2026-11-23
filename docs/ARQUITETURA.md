@@ -33,29 +33,34 @@ app/
   main.py                cria o FastAPI, registra rotas e tratadores de erro
   domain/
     enums.py             Perfil, CanalPedido, StatusPedido, ResultadoPagamento,
-                         CenarioPagamento, FinalidadeConsentimento, MotivoCancelamento
+                         CenarioPagamento, FinalidadeConsentimento, MotivoCancelamento,
+                         TipoMovimentacao
     errors.py            ErroDominio e subclasses (NaoAutenticado, PermissaoNegada,
                          NaoEncontrado, Conflito, DadosInvalidos, ServicoIndisponivel)
     regras.py            canais por perfil, quem paga e quem cancela, transições
-                         de status, quando cancelar, acesso ao pedido, prazo da reserva
+                         de status, quando cancelar, acesso ao pedido, prazo da reserva,
+                         gerente da unidade, saldo após movimentação de estoque
   application/
     auth.py              login e identificação do usuário pelo token
-    catalogo.py          unidades e cardápio
+    catalogo.py          unidades e cardápio (libera reservas vencidas antes)
     pedidos.py           expirar, criar, consultar, listar, pagar (mock), cancelar,
                          mudar status
+    estoque.py           registrar e listar movimentações de estoque
     consentimentos.py    listar e registrar consentimentos
     auditoria.py         consultar auditoria da unidade
   infrastructure/
     db.py                engine, sessão e Base (movido de app/db.py)
     models.py            tabelas ORM (movido de app/models.py)
     repositorios.py      classes de consulta: Usuario, Catalogo, Oferta, Pedido,
-                         Pagamento, Consentimento e Auditoria
+                         Pagamento, Movimentacao, Consentimento e Auditoria
     seguranca.py         hash de senha (Argon2) e JWT
   api/
     deps.py              sessão do banco, esquema Bearer e usuário autenticado
     erros.py             formato único de erro e conversão ErroDominio -> HTTP
     schemas.py           modelos Pydantic de entrada e saída
-    rotas/               auth, catalogo, pedidos, consentimentos, auditoria
+    rotas/               auth, catalogo, pedidos, estoque, consentimentos, auditoria
+migrations/versions/     0001 (modelo inicial) e 0002 (movimentacao_estoque),
+                         conferidas contra os modelos por tests/test_migracoes.py
 ```
 
 ```mermaid

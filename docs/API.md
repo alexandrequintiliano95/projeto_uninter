@@ -70,7 +70,7 @@ Resposta `200`:
 
 ### GET `/unidades/{unidade_id}/cardapio`
 
-Lista o cardápio ativo da unidade. Query params: `page` inicia em 1 e `limit` varia de 1 a 100.
+Lista o cardápio ativo da unidade. Query params: `page` inicia em 1 e `limit` varia de 1 a 100. Antes de listar, a consulta libera as reservas de pedidos com prazo vencido, para que `saldo_disponivel` não apareça menor do que é.
 
 Resposta `200`:
 
@@ -189,6 +189,46 @@ Avança o pedido para a próxima etapa do preparo ou da entrega. O body informa 
 Repetir o status em que o pedido já está devolve `200` com o pedido como está, sem gravar nova auditoria. `CONFIRMADO` e `CANCELADO` não são aceitos nesta rota: dependem do pagamento, do cancelamento (`POST /pedidos/{pedido_id}/cancelamento`) ou da expiração.
 
 Erros: `403` (`PERFIL_SEM_PERMISSAO`) quando o perfil não pode fazer aquela transição, como cliente alterando status ou cozinha marcando entregue; `404` para pedido fora do escopo; `409` (`TRANSICAO_INVALIDA`) quando o pedido não está no status exigido ou o destino não é aceito nesta rota; `422` para status desconhecido.
+
+### POST `/unidades/{unidade_id}/estoque/movimentacoes`
+
+Registra uma entrada ou saída manual de estoque. Disponível apenas para o gerente da própria unidade. Body:
+
+```json
+{"produto_id":1,"tipo":"ENTRADA","quantidade":10,"motivo":"Reposição do fornecedor"}
+```
+
+- `ENTRADA` soma `quantidade` ao saldo livre da oferta; `SAIDA` subtrai.
+- A saída nunca retira itens reservados em pedidos: se `quantidade` passar do saldo livre, a resposta é `409` (`ESTOQUE_INSUFICIENTE`).
+- Antes do ajuste, reservas vencidas da unidade voltam ao saldo livre.
+- Cada movimentação fica na tabela `movimentacao_estoque` e também gera `ESTOQUE_AJUSTADO` na auditoria, com o saldo anterior e o novo.
+
+Resposta `201`:
+
+```json
+{
+  "id":1,
+  "unidade_id":1,
+  "produto_id":1,
+  "tipo":"ENTRADA",
+  "quantidade":10,
+  "motivo":"Reposição do fornecedor",
+  "saldo_livre_anterior":20,
+  "saldo_livre_novo":30,
+  "usuario_id":4,
+  "criado_em":"2026-11-23T19:30:00Z"
+}
+```
+
+Erros: `401`; `403` (`PERFIL_SEM_PERMISSAO`) para quem não é gerente e (`UNIDADE_NAO_PERMITIDA`) para gerente de outra unidade; `404` (`PRODUTO_INDISPONIVEL`) quando o produto não tem oferta na unidade; `409` (`ESTOQUE_INSUFICIENTE`); `422` para tipo desconhecido, quantidade menor que 1 ou motivo vazio ou com menos de 3 caracteres.
+
+### GET `/unidades/{unidade_id}/estoque/movimentacoes`
+
+Histórico de movimentações da unidade, da mais recente para a mais antiga. Disponível apenas para o gerente da própria unidade. Query params: `produtoId` (opcional, filtra um produto), `page` e `limit`.
+
+Exemplo: `GET /unidades/1/estoque/movimentacoes?produtoId=1`.
+
+Erros: `401`, `403` e `422` para parâmetros inválidos.
 
 ### GET `/me/consentimentos`
 

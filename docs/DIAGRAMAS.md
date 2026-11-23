@@ -52,6 +52,13 @@ classDiagram
       valor_centavos
     }
     class Auditoria
+    class MovimentacaoEstoque {
+      tipo
+      quantidade
+      motivo
+      saldo_livre_anterior
+      saldo_livre_novo
+    }
 
     Unidade "1" --> "0..*" Usuario
     Unidade "1" --> "0..*" ProdutoUnidade
@@ -62,6 +69,8 @@ classDiagram
     ProdutoUnidade "1" --> "0..*" ItemPedido
     Pedido "1" --> "0..1" Pagamento
     Usuario "1" --> "0..*" Auditoria
+    ProdutoUnidade "1" --> "0..*" MovimentacaoEstoque
+    Usuario "1" --> "0..*" MovimentacaoEstoque : registra
 ```
 
 ## Sequência do fluxo crítico

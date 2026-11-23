@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .models import Auditoria, ConsentimentoEvento, ItemPedido, Pagamento, Pedido, Produto, ProdutoUnidade, Unidade, Usuario
+from .models import Auditoria, ConsentimentoEvento, ItemPedido, MovimentacaoEstoque, Pagamento, Pedido, Produto, ProdutoUnidade, Unidade, Usuario
 
 
 class UsuarioRepositorio:
@@ -55,6 +55,10 @@ class OfertaRepositorio:
 
     def obter(self, oferta_id: int) -> ProdutoUnidade | None:
         return self.session.get(ProdutoUnidade, oferta_id)
+
+    def da_unidade(self, unidade_id: int, produto_id: int) -> ProdutoUnidade | None:
+        """Oferta do produto na unidade, ativa ou não (o estoque pode ser ajustado com a oferta pausada)."""
+        return self.session.scalar(select(ProdutoUnidade).where(ProdutoUnidade.unidade_id == unidade_id, ProdutoUnidade.produto_id == produto_id))
 
 
 class PedidoRepositorio:
@@ -138,3 +142,26 @@ class AuditoriaRepositorio:
 
     def da_unidade(self, unidade_id: int | None, limite: int = 100) -> list[Auditoria]:
         return list(self.session.scalars(select(Auditoria).where(Auditoria.unidade_id == unidade_id).order_by(Auditoria.id.desc()).limit(limite)))
+
+
+class MovimentacaoRepositorio:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def adicionar(self, movimentacao: MovimentacaoEstoque) -> None:
+        self.session.add(movimentacao)
+        self.session.flush()
+
+    def da_unidade(self, unidade_id: int, produto_id: int | None, page: int, limit: int) -> list[tuple[MovimentacaoEstoque, ProdutoUnidade]]:
+        """Movimentações da unidade, da mais recente para a mais antiga, junto com a oferta movimentada."""
+        query = (
+            select(MovimentacaoEstoque, ProdutoUnidade)
+            .join(ProdutoUnidade, ProdutoUnidade.id == MovimentacaoEstoque.produto_unidade_id)
+            .where(ProdutoUnidade.unidade_id == unidade_id)
+            .order_by(MovimentacaoEstoque.id.desc())
+            .offset((page - 1) * limit)
+            .limit(limit)
+        )
+        if produto_id is not None:
+            query = query.where(ProdutoUnidade.produto_id == produto_id)
+        return [(movimentacao, oferta) for movimentacao, oferta in self.session.execute(query)]

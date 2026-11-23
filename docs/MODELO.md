@@ -87,7 +87,7 @@ O simulador recebe um cenário de teste de aprovação ou recusa e retorna um re
 
 ## 4. DER proposto
 
-São nove tabelas. Os nomes abaixo são os nomes internos do banco; a API usa `canalPedido` para o campo interno `canal_pedido`. Campos terminados em `_centavos` são inteiros: por exemplo, R$ 12,50 é gravado como `1250`, evitando arredondamento de ponto flutuante.
+São dez tabelas: as nove da migração inicial e `movimentacao_estoque`, criada pela migração `0002`. Os nomes abaixo são os nomes internos do banco; a API usa `canalPedido` para o campo interno `canal_pedido`. Campos terminados em `_centavos` são inteiros: por exemplo, R$ 12,50 é gravado como `1250`, evitando arredondamento de ponto flutuante.
 
 ```mermaid
 erDiagram
@@ -103,6 +103,8 @@ erDiagram
     USUARIO ||--o{ CONSENTIMENTO_EVENTO : registra
     USUARIO o|--o{ AUDITORIA : executa
     UNIDADE o|--o{ AUDITORIA : contextualiza
+    PRODUTO_UNIDADE ||--o{ MOVIMENTACAO_ESTOQUE : movimenta
+    USUARIO ||--o{ MOVIMENTACAO_ESTOQUE : registra
 
     UNIDADE {
         int id PK
@@ -181,6 +183,17 @@ erDiagram
         string detalhes
         datetime criado_em
     }
+    MOVIMENTACAO_ESTOQUE {
+        int id PK
+        int produto_unidade_id FK
+        int usuario_id FK "gerente que registrou"
+        string tipo "ENTRADA ou SAIDA"
+        int quantidade
+        string motivo
+        int saldo_livre_anterior
+        int saldo_livre_novo
+        datetime criado_em
+    }
 ```
 
 Na relação da equipe, cada funcionário possui exatamente uma unidade; um cliente possui zero. Um pedido sempre tem um criador e pode não ter cliente identificado. A relação `contem` representa a regra de pelo menos um item, validada pela aplicação na transação de criação.
@@ -197,6 +210,7 @@ Na relação da equipe, cada funcionário possui exatamente uma unidade; um clie
 | Valores | O servidor busca o preço da oferta e grava uma cópia no item. Total é a soma de quantidade × preço dos itens; o nome também fica preservado. Valores de preço/total enviados pelo cliente não são usados como autoridade. Não há taxa nem desconto no MVP. |
 | pagamento | Pedido único; valor igual ao total do pedido; resultado entre APROVADO/RECUSADO. Resultado e valor são imutáveis. A aplicação mantém correspondência entre resultado e estado do pedido. |
 | consentimento_evento | Finalidade FIDELIDADE ou MARKETING; versão do termo e data obrigatórias. Sem evento, não há consentimento. A opção atual é o evento mais recente por finalidade, ordenado por data e ID. Concessão e revogação acrescentam eventos; não sobrescrevem o histórico. |
+| movimentacao_estoque | Tipo `ENTRADA` ou `SAIDA`; quantidade inteira positiva; motivo obrigatório (3 a 200 caracteres); saldos anterior e novo não negativos. Altera só o saldo livre da oferta: a saída nunca passa do saldo livre e nunca retira itens reservados. Registros não são editados nem apagados. |
 | auditoria | Registrar criação, pagamento, mudanças de status, cancelamento, expiração, ajuste de estoque/preço e alterações/consultas de consentimento. Incluir valores anteriores/novos necessários, sem senha, token, e-mail ou conteúdo completo de requests. |
 
 `tipo_entidade` e `entidade_id` identificam o objeto na auditoria, mas não formam uma FK polimórfica: a aplicação valida o alvo ao gravar. Auditoria não tem edição/exclusão por API. Eventos de expiração usam usuário nulo e a unidade do pedido; eventos de consentimento usam a pessoa autenticada e unidade nula. Gerentes não consultam eventos pessoais sem unidade. Cadastro/equipe e permissão são conferidos novamente nas operações; possuir um ID válido não basta.

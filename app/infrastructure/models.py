@@ -120,3 +120,23 @@ class Auditoria(Base):
     entidade_id: Mapped[int] = mapped_column(Integer, nullable=False)
     detalhes: Mapped[str] = mapped_column(String(500), nullable=False, default="")
     criado_em: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+
+class MovimentacaoEstoque(Base):
+    """Histórico de entradas e saídas manuais do saldo livre de uma oferta, com o motivo informado pelo gerente."""
+
+    __tablename__ = "movimentacao_estoque"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    produto_unidade_id: Mapped[int] = mapped_column(ForeignKey("produto_unidade.id"), nullable=False)
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuario.id"), nullable=False)
+    tipo: Mapped[str] = mapped_column(String(7), nullable=False)
+    quantidade: Mapped[int] = mapped_column(Integer, nullable=False)
+    motivo: Mapped[str] = mapped_column(String(200), nullable=False)
+    saldo_livre_anterior: Mapped[int] = mapped_column(Integer, nullable=False)
+    saldo_livre_novo: Mapped[int] = mapped_column(Integer, nullable=False)
+    criado_em: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    __table_args__ = (
+        CheckConstraint("tipo IN ('ENTRADA','SAIDA')", name="ck_movimentacao_tipo"),
+        CheckConstraint("quantidade > 0", name="ck_movimentacao_quantidade_positiva"),
+        CheckConstraint("saldo_livre_anterior >= 0 AND saldo_livre_novo >= 0", name="ck_movimentacao_saldos_nao_negativos"),
+    )

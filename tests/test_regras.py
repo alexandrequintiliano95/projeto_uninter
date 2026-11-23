@@ -6,9 +6,18 @@ from pathlib import Path
 
 import pytest
 
-from app.domain.enums import CanalPedido, Perfil, StatusPedido
+from app.domain.enums import CanalPedido, Perfil, StatusPedido, TipoMovimentacao
 from app.domain.errors import Conflito, NaoEncontrado, PermissaoNegada
-from app.domain.regras import exigir_acesso_ao_pedido, exigir_pode_cancelar, exigir_pode_criar_pedido, exigir_pode_pagar, precisa_cancelar, validar_mudanca_status
+from app.domain.regras import (
+    exigir_acesso_ao_pedido,
+    exigir_gerente_da_unidade,
+    exigir_pode_cancelar,
+    exigir_pode_criar_pedido,
+    exigir_pode_pagar,
+    precisa_cancelar,
+    saldo_livre_apos_movimentacao,
+    validar_mudanca_status,
+)
 
 
 def test_cliente_so_usa_canais_de_cliente():
@@ -103,4 +112,32 @@ def test_so_cancela_pedido_aguardando_pagamento(atual, esperado):
         return
     with pytest.raises(Conflito) as erro:
         precisa_cancelar(atual)
+    assert erro.value.codigo == esperado
+
+
+def test_so_gerente_da_propria_unidade_ajusta_estoque():
+    with pytest.raises(PermissaoNegada) as erro:
+        exigir_gerente_da_unidade(Perfil.ATENDENTE, unidade_usuario=1, unidade_alvo=1)
+    assert erro.value.codigo == "PERFIL_SEM_PERMISSAO"
+    with pytest.raises(PermissaoNegada) as erro:
+        exigir_gerente_da_unidade(Perfil.GERENTE, unidade_usuario=2, unidade_alvo=1)
+    assert erro.value.codigo == "UNIDADE_NAO_PERMITIDA"
+    assert exigir_gerente_da_unidade(Perfil.GERENTE, unidade_usuario=1, unidade_alvo=1) is None
+
+
+@pytest.mark.parametrize(
+    ("saldo", "tipo", "quantidade", "esperado"),
+    [
+        (20, TipoMovimentacao.ENTRADA, 10, 30),
+        (20, TipoMovimentacao.SAIDA, 5, 15),
+        (20, TipoMovimentacao.SAIDA, 20, 0),
+        (20, TipoMovimentacao.SAIDA, 21, "ESTOQUE_INSUFICIENTE"),
+    ],
+)
+def test_saldo_livre_apos_movimentacao(saldo, tipo, quantidade, esperado):
+    if isinstance(esperado, int):
+        assert saldo_livre_apos_movimentacao(saldo, tipo, quantidade) == esperado
+        return
+    with pytest.raises(Conflito) as erro:
+        saldo_livre_apos_movimentacao(saldo, tipo, quantidade)
     assert erro.value.codigo == esperado

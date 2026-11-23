@@ -424,3 +424,75 @@ def test_swagger_lists_payment_scenarios(client: TestClient):
     body = openapi["paths"]["/pedidos/{pedido_id}/pagamentos/mock"]["post"]["requestBody"]["content"]["application/json"]["schema"]
     resultado = resolve_schema(openapi, resolve_schema(openapi, body)["properties"]["resultado"])
     assert set(resultado["enum"]) == {"APROVADO", "RECUSADO", "FALHA"}
+
+
+# --- Entrada e saída de estoque ------------------------------------------------
+
+
+def move_stock(client: TestClient, credentials: tuple[str, str], *, unidade_id: int = 1, produto_id: int = 1, tipo: str = "ENTRADA", quantidade: int = 10, motivo: str = "Reposição do fornecedor"):
+    payload = {"produto_id": produto_id, "tipo": tipo, "quantidade": quantidade, "motivo": motivo}
+    return client.post(f"/unidades/{unidade_id}/estoque/movimentacoes", headers=auth(client, credentials), json=payload)
+
+
+def test_manager_registers_stock_entry(client: TestClient):
+    response = move_stock(client, GERENTE_RECIFE, quantidade=10)
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert {key: body[key] for key in ("unidade_id", "produto_id", "tipo", "quantidade", "motivo", "saldo_livre_anterior", "saldo_livre_novo")} == {
+        "unidade_id": 1, "produto_id": 1, "tipo": "ENTRADA", "quantidade": 10, "motivo": "Reposição do fornecedor", "saldo_livre_anterior": 20, "saldo_livre_novo": 30,
+    }
+    assert free_stock(client, 1, 1) == 30
+    audit = client.get("/auditoria", headers=auth(client, GERENTE_RECIFE)).json()
+    assert [event["acao"] for event in audit if event["tipo_entidade"] == "MOVIMENTACAO_ESTOQUE"] == ["ESTOQUE_AJUSTADO"]
+
+
+def test_stock_exit_never_takes_reserved_items(client: TestClient, session_factory: sessionmaker):
+    create_order(client, auth(client, CLIENTE), produto_id=2)
+    too_much = move_stock(client, GERENTE_RECIFE, produto_id=2, tipo="SAIDA", quantidade=15, motivo="Perda")
+    assert_error(too_much, 409, "ESTOQUE_INSUFICIENTE", "/unidades/1/estoque/movimentacoes")
+    all_free = move_stock(client, GERENTE_RECIFE, produto_id=2, tipo="SAIDA", quantidade=14, motivo="Perda")
+    assert (all_free.status_code, all_free.json()["saldo_livre_novo"]) == (201, 0)
+    with session_factory() as session:
+        offer = session.get(ProdutoUnidade, 2)
+        assert (offer.saldo_livre, offer.saldo_reservado) == (0, 1)
+
+
+def test_only_manager_of_the_unit_moves_stock(client: TestClient):
+    assert_error(move_stock(client, ATENDENTE_RECIFE), 403, "PERFIL_SEM_PERMISSAO", "/unidades/1/estoque/movimentacoes")
+    assert_error(move_stock(client, GERENTE_CARUARU), 403, "UNIDADE_NAO_PERMITIDA", "/unidades/1/estoque/movimentacoes")
+    assert free_stock(client, 1, 1) == 20
+
+
+def test_stock_movement_validates_reason_and_quantity(client: TestClient):
+    no_reason = assert_error(move_stock(client, GERENTE_RECIFE, motivo="  "), 422, "DADOS_INVALIDOS", "/unidades/1/estoque/movimentacoes")
+    assert [detail["field"] for detail in no_reason["details"]] == ["motivo"]
+    zero = assert_error(move_stock(client, GERENTE_RECIFE, quantidade=0), 422, "DADOS_INVALIDOS", "/unidades/1/estoque/movimentacoes")
+    assert [detail["field"] for detail in zero["details"]] == ["quantidade"]
+
+
+def test_stock_movement_needs_an_offer_in_the_unit(client: TestClient):
+    response = move_stock(client, GERENTE_CARUARU, unidade_id=2, produto_id=2)
+    assert_error(response, 404, "PRODUTO_INDISPONIVEL", "/unidades/2/estoque/movimentacoes")
+
+
+def test_stock_history_is_newest_first_and_filters_by_product(client: TestClient):
+    first = move_stock(client, GERENTE_RECIFE, produto_id=1, quantidade=5).json()["id"]
+    second = move_stock(client, GERENTE_RECIFE, produto_id=3, quantidade=5).json()["id"]
+    third = move_stock(client, GERENTE_RECIFE, produto_id=1, tipo="SAIDA", quantidade=2, motivo="Avaria").json()["id"]
+    headers = auth(client, GERENTE_RECIFE)
+    history = client.get("/unidades/1/estoque/movimentacoes", headers=headers)
+    assert [item["id"] for item in history.json()] == [third, second, first]
+    only_tapioca = client.get("/unidades/1/estoque/movimentacoes", headers=headers, params={"produtoId": 1})
+    assert [item["id"] for item in only_tapioca.json()] == [third, first]
+    assert_error(client.get("/unidades/1/estoque/movimentacoes", headers=auth(client, CLIENTE)), 403, "PERFIL_SEM_PERMISSAO", "/unidades/1/estoque/movimentacoes")
+
+
+def test_menu_releases_expired_reservations(client: TestClient, session_factory: sessionmaker):
+    order_id = create_order(client, auth(client, CLIENTE))["id"]
+    with session_factory() as session:
+        session.execute(update(Pedido).where(Pedido.id == order_id).values(expira_em=datetime(2020, 1, 1)))
+        session.commit()
+    assert free_stock(client, 1, 1) == 20
+    with session_factory() as session:
+        order = session.get(Pedido, order_id)
+        assert (order.status, order.motivo_cancelamento) == ("CANCELADO", "PRAZO_EXPIRADO")

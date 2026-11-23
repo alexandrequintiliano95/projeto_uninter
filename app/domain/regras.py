@@ -2,7 +2,7 @@
 
 from datetime import timedelta
 
-from .enums import CanalPedido, Perfil, StatusPedido
+from .enums import CanalPedido, Perfil, StatusPedido, TipoMovimentacao
 from .errors import Conflito, NaoEncontrado, PermissaoNegada
 
 PRAZO_RESERVA = timedelta(minutes=15)
@@ -75,3 +75,18 @@ def validar_mudanca_status(perfil: str, atual: str, destino: StatusPedido) -> bo
     if atual != regra[0]:
         raise Conflito("TRANSICAO_INVALIDA", "Transição de status não permitida.")
     return True
+
+
+def exigir_gerente_da_unidade(perfil: str, unidade_usuario: int | None, unidade_alvo: int) -> None:
+    """Operações de gestão local (estoque) são do gerente, e só na própria unidade."""
+    exigir_perfil(perfil, frozenset({Perfil.GERENTE}), "Somente gerentes ajustam o estoque.")
+    if unidade_usuario != unidade_alvo:
+        raise PermissaoNegada("UNIDADE_NAO_PERMITIDA", "Operação fora da unidade do usuário.")
+
+
+def saldo_livre_apos_movimentacao(saldo_livre: int, tipo: TipoMovimentacao, quantidade: int) -> int:
+    """Entrada soma ao saldo livre; saída subtrai. A saída nunca retira itens reservados, então não pode passar do saldo livre."""
+    novo = saldo_livre + quantidade if tipo == TipoMovimentacao.ENTRADA else saldo_livre - quantidade
+    if novo < 0:
+        raise Conflito("ESTOQUE_INSUFICIENTE", "A saída é maior que o saldo livre. Itens reservados em pedidos não podem ser retirados.")
+    return novo

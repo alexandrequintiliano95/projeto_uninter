@@ -45,6 +45,11 @@ class FinalidadeConsentimento(StrEnum):
     MARKETING = "MARKETING"
 
 
+class TipoMovimentacao(StrEnum):
+    ENTRADA = "ENTRADA"
+    SAIDA = "SAIDA"
+
+
 class MotivoCancelamento(StrEnum):
     SOLICITADO = "SOLICITADO"
     PAGAMENTO_RECUSADO = "PAGAMENTO_RECUSADO"
