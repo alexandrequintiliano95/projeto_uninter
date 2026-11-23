@@ -13,6 +13,7 @@ Permissões, fluxo de status, banco, migração, seed e primeira versão da API 
 - [Registro da revisão do plano](PLAN-REVIEW-LOG.md)
 - [Contrato da API](docs/API.md)
 - [Arquitetura em camadas](docs/ARQUITETURA.md)
+- [Regras de promoção (proposta, não implementada)](docs/PROMOCOES.md)
 - [Diagramas da solução](docs/DIAGRAMAS.md)
 - [Roteiro do relatório acadêmico](docs/RELATORIO_MODELO.md)
 

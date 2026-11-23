@@ -11,7 +11,7 @@ Decisões para implementar o fluxo pedido → pagamento mock → preparo → ent
 - Estoque contado em unidades inteiras de produto pronto. Ingredientes e receitas ficam como evolução.
 - Preço, disponibilidade e estoque local ficam juntos em `produto_unidade`.
 - Pagamento totalmente simulado, à vista e pelo valor integral. Um pedido tem no máximo um resultado de pagamento.
-- Compra não exige adesão à fidelidade ou marketing. Com consentimento `FIDELIDADE` ativo, o cliente ganha 1 ponto por real pago e pode usar cada 100 pontos como R$ 5,00 de desconto, até 50% do pedido. Validade de pontos, níveis de cliente, campanhas e relatórios da matriz ficam descritos como evolução.
+- Compra não exige adesão à fidelidade ou marketing. Com consentimento `FIDELIDADE` ativo, o cliente ganha 1 ponto por real pago e pode usar cada 100 pontos como R$ 5,00 de desconto, até 50% do pedido. Promoções por unidade estão documentadas como proposta em [PROMOCOES.md](PROMOCOES.md), sem implementação. Validade de pontos, níveis de cliente, campanhas da matriz e relatórios ficam descritos como evolução.
 
 ## 2. Perfis e permissões
 
