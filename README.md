@@ -14,6 +14,7 @@ Permissões, fluxo de status, banco, migração, seed e primeira versão da API 
 - [Contrato da API](docs/API.md)
 - [Arquitetura em camadas](docs/ARQUITETURA.md)
 - [Regras de promoção (proposta, não implementada)](docs/PROMOCOES.md)
+- [Plano de testes](docs/PLANO_DE_TESTES.md)
 - [Diagramas da solução](docs/DIAGRAMAS.md)
 - [Roteiro do relatório acadêmico](docs/RELATORIO_MODELO.md)
 
@@ -39,4 +40,4 @@ A documentação interativa fica em `http://127.0.0.1:8000/docs`.
 
 Endpoints disponíveis nesta etapa: `/health`, `/auth/cadastro`, `/auth/login`, `/unidades`, `/unidades/{id}/cardapio`, `/pedidos`, `/pedidos/{id}`, `/pedidos/{id}/pagamentos/mock`, `/pedidos/{id}/cancelamento`, `/pedidos/{id}/status`, `/unidades/{id}/estoque/movimentacoes`, `/me/consentimentos`, `/me/fidelidade` e `/auditoria`.
 
-Testes automatizados: `python -m pytest -q`. A coleção Postman está em `postman/raizes-backend.postman_collection.json` e possui 11 requisições, incluindo casos positivos e negativos.
+Testes automatizados: `python -m pytest -q` (usa um banco temporário próprio). A coleção Postman está em `postman/raizes-backend.postman_collection.json`, com 54 requisições em 7 pastas e asserções em todas; execute-a com a API rodando, na ordem das pastas. Os cenários, as evidências e o passo a passo estão no [plano de testes](docs/PLANO_DE_TESTES.md).

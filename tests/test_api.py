@@ -662,3 +662,23 @@ def test_staff_orders_cannot_redeem_points(client: TestClient):
 
 def test_loyalty_statement_is_only_for_clients(client: TestClient):
     assert_error(client.get("/me/fidelidade", headers=auth(client, GERENTE_RECIFE)), 403, "PERFIL_SEM_PERMISSAO", "/me/fidelidade")
+
+
+# --- Casos negativos do plano de testes que só a coleção Postman cobria --------
+
+
+def test_login_with_wrong_password_is_rejected(client: TestClient):
+    response = client.post("/auth/login", json={"email": CLIENTE[0], "senha": "errada"})
+    assert_error(response, 401, "CREDENCIAIS_INVALIDAS", "/auth/login")
+
+
+def test_order_beyond_stock_is_rejected_without_reserving(client: TestClient):
+    response = client.post("/pedidos", headers=auth(client, CLIENTE), json=order_payload(quantidade=21))
+    assert_error(response, 409, "ESTOQUE_INSUFICIENTE", "/pedidos")
+    assert free_stock(client, 1, 1) == 20
+
+
+def test_payment_result_cannot_be_changed(client: TestClient):
+    order_id = create_paid_order(client)
+    response = client.post(f"/pedidos/{order_id}/pagamentos/mock", headers=auth(client, CLIENTE), json={"resultado": "RECUSADO"})
+    assert_error(response, 409, "PAGAMENTO_IMUTAVEL", f"/pedidos/{order_id}/pagamentos/mock")
