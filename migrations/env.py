@@ -4,12 +4,17 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+from app.infrastructure.config import database_url
 from app.infrastructure.db import Base
 from app.infrastructure import models  # noqa: F401
 
 config = context.config
 if config.config_file_name:
     fileConfig(config.config_file_name)
+# O banco vem de DATABASE_URL (ambiente ou .env), o mesmo usado pela API e pelo seed.
+# Só é ignorado quando quem chama o Alembic já informou outro banco (como fazem os testes).
+if not config.get_main_option("sqlalchemy.url"):
+    config.set_main_option("sqlalchemy.url", database_url().replace("%", "%%"))
 target_metadata = Base.metadata
 
 

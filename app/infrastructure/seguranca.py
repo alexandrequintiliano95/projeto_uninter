@@ -2,14 +2,15 @@
 """Hash de senha (Argon2, via pwdlib) e emissão/leitura de JWT."""
 
 from datetime import datetime, timedelta, timezone
-from os import getenv
 
 import jwt
 from pwdlib import PasswordHash
 
 from app.domain.errors import NaoAutenticado
 
-JWT_SECRET = getenv("JWT_SECRET", "dev-only-change-me-32-byte-secret-key")
+from .config import jwt_secret
+
+JWT_SECRET = jwt_secret()
 JWT_ALGORITHM = "HS256"
 TOKEN_MINUTES = 60
 

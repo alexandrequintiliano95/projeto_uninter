@@ -99,7 +99,7 @@ A coleção guarda os IDs criados em variáveis (`pedidoId`, `pedidoCanceladoId`
 
 | Execução | Resultado | Evidência |
 | --- | --- | --- |
-| pytest | 109 testes passaram, 0 falhas | [evidencias/pytest-execucao.txt](evidencias/pytest-execucao.txt) |
+| pytest | 110 testes passaram, 0 falhas | [evidencias/pytest-execucao.txt](evidencias/pytest-execucao.txt) |
 | Newman, 1ª execução (banco recém-criado) | 54 requisições, 131 asserções, 0 falhas | [evidencias/newman-execucao.txt](evidencias/newman-execucao.txt) |
 | Newman, 2ª execução seguida (mesmo banco) | 54 requisições, 131 asserções, 0 falhas | Execução de conferência, não arquivada |
 

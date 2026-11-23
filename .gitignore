@@ -1,6 +1,8 @@
+# Trechos alterados com apoio de IA (Claude Code) e revisados pelo autor.
 .venv/
 __pycache__/
 *.py[cod]
 *.db
 .idea/
 .pytest_cache/
+.env

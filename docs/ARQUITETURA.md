@@ -59,6 +59,7 @@ app/
     repositorios.py      classes de consulta: Usuario, Catalogo, Oferta, Pedido,
                          Pagamento, Movimentacao, Fidelidade, Consentimento e Auditoria
     seguranca.py         hash de senha (Argon2) e JWT
+    config.py            DATABASE_URL e JWT_SECRET, do ambiente ou do arquivo .env
   api/
     deps.py              sessão do banco, esquema Bearer e usuário autenticado
     erros.py             formato único de erro e conversão ErroDominio -> HTTP

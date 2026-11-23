@@ -1,7 +1,7 @@
-# Execução do pytest em 23/11/2026 17:24 - Python 3.14.6
+# Execução do pytest em 23/11/2026 17:33 - Python 3.14.6
 # Comando: python -m pytest -v -W error
 ============================= test session starts =============================
-collecting ... collected 109 items
+collecting ... collected 110 items
 
 tests/test_api.py::test_health_and_public_catalog PASSED
 tests/test_api.py::test_login_and_missing_token PASSED
@@ -70,6 +70,7 @@ tests/test_api.py::test_login_with_wrong_password_is_rejected PASSED
 tests/test_api.py::test_order_beyond_stock_is_rejected_without_reserving PASSED
 tests/test_api.py::test_payment_result_cannot_be_changed PASSED
 tests/test_migracoes.py::test_migracoes_geram_o_esquema_dos_modelos PASSED
+tests/test_migracoes.py::test_alembic_usa_o_database_url_do_ambiente PASSED
 tests/test_regras.py::test_cliente_so_usa_canais_de_cliente PASSED
 tests/test_regras.py::test_cozinha_nao_cria_pedido PASSED
 tests/test_regras.py::test_funcionario_so_cria_na_propria_unidade PASSED
@@ -113,4 +114,4 @@ tests/test_regras.py::test_resgate_de_100_pontos_vale_5_reais_ate_metade_do_pedi
 tests/test_regras.py::test_resgate_de_100_pontos_vale_5_reais_ate_metade_do_pedido[0-500-5000-RESGATE_INVALIDO] PASSED
 tests/test_regras.py::test_so_cliente_com_consentimento_ativo_resgata PASSED
 
-============================ 109 passed in 11.51s =============================
+============================ 110 passed in 11.93s =============================

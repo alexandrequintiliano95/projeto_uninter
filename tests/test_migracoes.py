@@ -29,3 +29,18 @@ def test_migracoes_geram_o_esquema_dos_modelos(tmp_path: Path):
     finally:
         engine.dispose()
     assert diferencas == []
+
+
+def test_alembic_usa_o_database_url_do_ambiente(tmp_path: Path, monkeypatch):
+    destino = tmp_path / "via_ambiente.db"
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{destino.as_posix()}")
+    config = Config(str(RAIZ / "alembic.ini"))
+    config.set_main_option("script_location", str(RAIZ / "migrations"))
+    # Trava de segurança: se o alembic.ini fixar um banco, o upgrade iria para ele (ex.: o raizes.db local).
+    assert config.get_main_option("sqlalchemy.url") is None, "alembic.ini não deve fixar o banco; ele vem de DATABASE_URL"
+    command.upgrade(config, "head")
+    engine = create_engine(f"sqlite:///{destino.as_posix()}")
+    try:
+        assert {"pedido", "movimentacao_estoque", "fidelidade_movimento"} <= set(inspect(engine).get_table_names())
+    finally:
+        engine.dispose()

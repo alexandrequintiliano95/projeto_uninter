@@ -1,9 +1,10 @@
-from os import getenv
-
+# Trechos alterados com apoio de IA (Claude Code) e revisados pelo autor.
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-DATABASE_URL = getenv("DATABASE_URL", "sqlite:///./raizes.db")
+from .config import database_url
+
+DATABASE_URL = database_url()
 
 
 class Base(DeclarativeBase):
