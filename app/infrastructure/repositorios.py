@@ -1,3 +1,4 @@
+# Elaborado com apoio de IA (Claude Code) e revisado pelo autor.
 """Consultas ao banco. Cada repositório recebe a sessão da requisição; a confirmação (commit) fica na aplicação."""
 
 from datetime import datetime, timezone

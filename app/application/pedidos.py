@@ -1,3 +1,4 @@
+# Elaborado com apoio de IA (Claude Code) e revisado pelo autor.
 """Casos de uso do pedido: criação com reserva, consulta, listagem, pagamento mock, cancelamento, mudança de status e expiração."""
 
 from dataclasses import dataclass

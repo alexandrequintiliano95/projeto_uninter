@@ -1,3 +1,4 @@
+# Elaborado com apoio de IA (Claude Code) e revisado pelo autor.
 """Ponto de entrada: cria a aplicação FastAPI, registra os tratadores de erro e as rotas de cada recurso."""
 
 from fastapi import FastAPI

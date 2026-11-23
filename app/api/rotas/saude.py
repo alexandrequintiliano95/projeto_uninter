@@ -1,3 +1,4 @@
+# Elaborado com apoio de IA (Claude Code) e revisado pelo autor.
 from fastapi import APIRouter
 
 router = APIRouter(tags=["Saúde"])

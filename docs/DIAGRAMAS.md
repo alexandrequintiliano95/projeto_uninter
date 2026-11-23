@@ -1,5 +1,7 @@
 # Diagramas da solução
 
+> Nota: trechos alterados com apoio de IA (Claude Code) e revisados pelo autor.
+
 Os diagramas representam o MVP implementado. O DER completo está em [MODELO.md](MODELO.md).
 
 ## Casos de uso

@@ -1,3 +1,4 @@
+# Elaborado com apoio de IA (Claude Code) e revisado pelo autor.
 """Cria o histórico de entradas e saídas de estoque."""
 from alembic import op
 import sqlalchemy as sa

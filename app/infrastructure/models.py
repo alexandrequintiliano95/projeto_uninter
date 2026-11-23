@@ -1,3 +1,4 @@
+# Trechos alterados com apoio de IA (Claude Code) e revisados pelo autor.
 from datetime import datetime
 
 from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, String, UniqueConstraint

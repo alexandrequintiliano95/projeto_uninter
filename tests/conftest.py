@@ -1,3 +1,4 @@
+# Elaborado com apoio de IA (Claude Code) e revisado pelo autor.
 """Fixtures dos testes: cada teste usa uma cópia própria de um banco SQLite temporário.
 
 O banco modelo é criado uma vez por execução (tabelas + seed). Cada teste recebe uma

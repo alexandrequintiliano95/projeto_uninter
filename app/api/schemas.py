@@ -1,3 +1,4 @@
+# Elaborado com apoio de IA (Claude Code) e revisado pelo autor.
 """Modelos Pydantic de entrada e saída. Datas saem em UTC no formato ISO 8601 com sufixo Z."""
 
 from datetime import datetime

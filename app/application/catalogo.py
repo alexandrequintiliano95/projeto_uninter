@@ -1,3 +1,4 @@
+# Elaborado com apoio de IA (Claude Code) e revisado pelo autor.
 from dataclasses import dataclass
 
 from sqlalchemy.orm import Session

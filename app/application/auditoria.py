@@ -1,3 +1,4 @@
+# Elaborado com apoio de IA (Claude Code) e revisado pelo autor.
 from sqlalchemy.orm import Session
 
 from app.domain.enums import Perfil

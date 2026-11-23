@@ -1,3 +1,4 @@
+# Trechos alterados com apoio de IA (Claude Code) e revisados pelo autor.
 from pwdlib import PasswordHash
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker

@@ -1,5 +1,7 @@
 # Contrato da API
 
+> Nota: trechos alterados com apoio de IA (Claude Code) e revisados pelo autor.
+
 Base local: `http://127.0.0.1:8000`.
 
 Autenticação protegida usa `Authorization: Bearer <token>`. No Swagger (`/docs`), faça `POST /auth/login`, copie o `access_token` e cole-o em **Authorize**.

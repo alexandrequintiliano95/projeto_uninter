@@ -1,3 +1,4 @@
+# Trechos alterados com apoio de IA (Claude Code) e revisados pelo autor.
 from logging.config import fileConfig
 
 from alembic import context

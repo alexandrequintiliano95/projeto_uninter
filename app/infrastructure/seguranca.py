@@ -1,3 +1,4 @@
+# Elaborado com apoio de IA (Claude Code) e revisado pelo autor.
 """Hash de senha (Argon2, via pwdlib) e emissão/leitura de JWT."""
 
 from datetime import datetime, timedelta, timezone

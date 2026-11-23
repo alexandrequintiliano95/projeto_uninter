@@ -1,3 +1,4 @@
+# Elaborado com apoio de IA (Claude Code) e revisado pelo autor.
 """Erros de regra de negócio. A camada de API converte cada tipo em um status HTTP."""
 
 

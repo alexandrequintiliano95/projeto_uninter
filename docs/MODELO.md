@@ -1,5 +1,7 @@
 # Modelo inicial do Back-end
 
+> Nota: trechos alterados com apoio de IA (Claude Code) e revisados pelo autor.
+
 Decisões para implementar o fluxo pedido → pagamento mock → preparo → entrega. Este documento define permissões, estados e o DER proposto. Ainda não há banco nem API implementados.
 
 ## 1. Recorte do MVP

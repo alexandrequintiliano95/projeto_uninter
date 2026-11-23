@@ -1,5 +1,7 @@
 # Arquitetura em camadas
 
+> Nota: elaborado com apoio de IA (Claude Code) e revisado pelo autor.
+
 Este documento descreve como o código da API é dividido. Ele também serve de base para a seção de arquitetura do relatório.
 
 ## Por que separar
@@ -24,7 +26,7 @@ Até esta separação, toda a API ficava em `app/main.py`: rotas, regras de neg�
 | Portas e adaptadores | O domínio tem entidades próprias (dataclasses). A aplicação define interfaces de repositório e a infraestrutura as implementa, convertendo ORM em entidade. | Inversão de dependência completa; regras testáveis sem banco. | Duplica modelos e mapeamentos, com cerca do dobro de código. |
 | Divisão por funcionalidade | Pastas `pedidos/`, `auth/` etc., cada uma com rota, serviço e consulta. | Agrupa o que muda junto. | Não mostra as camadas que o roteiro e o PLAN.md pedem. |
 
-A escolha foi das camadas diretas, feita na conversa de 23/11/2026.
+A escolha foi das camadas diretas, feita pelo autor em 23/11/2026, a partir das alternativas apresentadas pelo assistente de IA (Claude Code).
 
 ## Estrutura
 
@@ -100,7 +102,7 @@ Cada erro mantém o código atual (`PERFIL_SEM_PERMISSAO`, `TRANSICAO_INVALIDA` 
   - um status desconhecido devolve `422` em vez de `409`.
 
   Por exemplo, a cozinha enviando `{"status":"CONFIRMADO"}` para um pedido confirmado recebia `200` (e o pedido ia para `EM_PREPARO`); agora recebe `409 TRANSICAO_INVALIDA`.
-- `resultado` do pagamento mock e `finalidade` do consentimento passam a ser enums. O Swagger mostra os valores aceitos, e um valor inválido devolve `422` com o código `DADOS_INVALIDOS`, em vez de `RESULTADO_INVALIDO` ou `FINALIDADE_INVALIDA`. Decisão do implementador, pelo mesmo motivo da correção do canal: o Swagger não mostrava os valores.
+- `resultado` do pagamento mock e `finalidade` do consentimento passam a ser enums. O Swagger mostra os valores aceitos, e um valor inválido devolve `422` com o código `DADOS_INVALIDOS`, em vez de `RESULTADO_INVALIDO` ou `FINALIDADE_INVALIDA`. Decisão proposta pelo assistente de IA (Claude Code) durante a implementação e aprovada pelo autor junto com este documento, pelo mesmo motivo da correção do canal: o Swagger não mostrava os valores.
 - Como a validação desses enums acontece antes da conferência de perfil, um perfil sem permissão que envie um valor inválido recebe `422` em vez de `403`. Exemplos: a cozinha pagando com `resultado: "TALVEZ"`, ou um atendente registrando `finalidade: "SORTEIO"`. Com um valor válido, o `403` continua igual.
 - As rotas passam a declarar modelos de resposta. O JSON devolvido não muda, mas o Swagger passa a mostrar os campos de cada resposta.
 - Dois bugs antigos, encontrados durante a separação e cobertos por testes, foram corrigidos:
@@ -117,7 +119,7 @@ Cada erro mantém o código atual (`PERFIL_SEM_PERMISSAO`, `TRANSICAO_INVALIDA` 
 
 - **Testes:** 45 no total. Os 13 de `tests/test_regras.py` testam as regras do domínio sem banco nem HTTP, e um deles confere que o domínio não carrega FastAPI, Pydantic, Starlette nem SQLAlchemy.
 - **Comparação de respostas:** a API antiga (último commit antes da separação) e a nova receberam a mesma sequência de 59 requisições, cada uma com um banco igual, cobrindo casos de sucesso e de erro. Não houve nenhuma diferença de status nem de corpo, ignorando horários e tokens. A comparação não cobre as mudanças listadas acima: no PATCH, ela só exercitou casos de `403` e `404`, iguais nos dois contratos. Essas mudanças são cobertas pelos testes automatizados.
-- **Revisão independente:** um revisor sem acesso à conversa conferiu a mudança inteira e encontrou a falha da expiração no pagamento (descrita acima), que foi corrigida com teste.
+- **Revisão independente:** um segundo agente de IA (Claude), sem acesso à conversa da implementação, conferiu a mudança inteira e encontrou a falha da expiração no pagamento (descrita acima), que foi corrigida com teste.
 - **Contrato:** as 12 operações do OpenAPI são as mesmas nas duas versões.
 
 ## Onde entra cada funcionalidade nova

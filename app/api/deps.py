@@ -1,3 +1,4 @@
+# Elaborado com apoio de IA (Claude Code) e revisado pelo autor.
 from collections.abc import Iterator
 from typing import Annotated
 

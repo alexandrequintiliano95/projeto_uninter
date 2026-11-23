@@ -1,3 +1,4 @@
+# Elaborado com apoio de IA (Claude Code) e revisado pelo autor.
 """Confere que as migrações do Alembic criam exatamente o esquema descrito pelos modelos ORM."""
 
 from pathlib import Path

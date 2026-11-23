@@ -1,3 +1,4 @@
+# Elaborado com apoio de IA (Claude Code) e revisado pelo autor.
 """Regras de negócio puras. Recebem valores simples e lançam ErroDominio quando a operação não é permitida."""
 
 from datetime import timedelta

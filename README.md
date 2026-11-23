@@ -1,5 +1,7 @@
 # Projeto Uninter
 
+> Nota: trechos alterados com apoio de IA (Claude Code) e revisados pelo autor.
+
 Back-end da rede fictícia Raízes do Nordeste, com Python, FastAPI e SQLite.
 
 ## Estado atual

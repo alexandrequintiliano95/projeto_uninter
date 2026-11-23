@@ -1,6 +1,7 @@
 {
   "info": {
     "name": "Raizes do Nordeste - Backend",
+    "description": "Trechos alterados com apoio de IA (Claude Code) e revisados pelo autor.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [

@@ -1,3 +1,4 @@
+# Elaborado com apoio de IA (Claude Code) e revisado pelo autor.
 """Testes unitários das regras de domínio: não usam banco nem HTTP."""
 
 import subprocess

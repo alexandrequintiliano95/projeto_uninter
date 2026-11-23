@@ -1,3 +1,4 @@
+# Elaborado com apoio de IA (Claude Code) e revisado pelo autor.
 """Entrada e saída manual de estoque pelo gerente, com motivo e histórico."""
 
 from dataclasses import dataclass

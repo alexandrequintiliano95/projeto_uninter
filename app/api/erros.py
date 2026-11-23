@@ -1,3 +1,4 @@
+# Elaborado com apoio de IA (Claude Code) e revisado pelo autor.
 """Formato único de erro: {error, message, details, timestamp, path}, para qualquer falha da API."""
 
 from datetime import datetime, timezone
