@@ -43,7 +43,13 @@ classDiagram
       canal_pedido
       status
       total_centavos
+      desconto_centavos
+      pontos_resgatados
       expira_em
+    }
+    class FidelidadeMovimento {
+      tipo
+      pontos
     }
     class ItemPedido {
       quantidade
@@ -73,6 +79,8 @@ classDiagram
     Usuario "1" --> "0..*" Auditoria
     ProdutoUnidade "1" --> "0..*" MovimentacaoEstoque
     Usuario "1" --> "0..*" MovimentacaoEstoque : registra
+    Usuario "1" --> "0..*" FidelidadeMovimento : acumula
+    Pedido "1" --> "0..*" FidelidadeMovimento
 ```
 
 ## Sequência do fluxo crítico

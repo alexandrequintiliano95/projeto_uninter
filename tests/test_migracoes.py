@@ -25,7 +25,7 @@ def test_migracoes_geram_o_esquema_dos_modelos(tmp_path: Path):
     try:
         with engine.connect() as conexao:
             diferencas = compare_metadata(MigrationContext.configure(conexao), Base.metadata)
-        assert "movimentacao_estoque" in inspect(engine).get_table_names()
+        assert {"movimentacao_estoque", "fidelidade_movimento"} <= set(inspect(engine).get_table_names())
     finally:
         engine.dispose()
     assert diferencas == []

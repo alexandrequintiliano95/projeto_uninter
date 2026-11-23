@@ -126,13 +126,16 @@ Erro: `404` quando a unidade não existe ou está inativa.
 
 Cria um pedido e reserva o estoque por 15 minutos. `canal_pedido` aceita `APP`, `WEB`, `PICKUP`, `BALCAO` ou `TOTEM`. Cliente só pode usar `APP`, `WEB` ou `PICKUP`. Atendente e gerente da própria unidade podem usar `BALCAO`, `TOTEM` ou `PICKUP`. Os itens da resposta trazem em `produto_id` o ID do produto do catálogo.
 
+O campo opcional `pontos_resgatados` usa pontos de fidelidade como desconto. Ele aceita múltiplos de 100 (cada 100 pontos valem R$ 5,00), limitados ao saldo e a 50% do valor do pedido, e só vale para cliente com consentimento `FIDELIDADE` ativo. Os pontos saem do saldo na criação e voltam (`ESTORNO`) se o pedido for cancelado, recusado ou vencer. `total_centavos` é o valor a pagar, já com o desconto.
+
 Request:
 
 ```json
 {
   "unidade_id":1,
   "canal_pedido":"APP",
-  "itens":[{"produto_id":1,"quantidade":1}]
+  "itens":[{"produto_id":1,"quantidade":1}],
+  "pontos_resgatados":0
 }
 ```
 
@@ -146,13 +149,15 @@ Resposta `201`:
   "canal_pedido":"APP",
   "status":"AGUARDANDO_PAGAMENTO",
   "total_centavos":1890,
+  "desconto_centavos":0,
+  "pontos_resgatados":0,
   "motivo_cancelamento":null,
   "expira_em":"2026-11-14T15:00:00Z",
   "itens":[{"produto_id":1,"nome":"Tapioca de Carne de Sol","quantidade":1,"preco_unitario_centavos":1890}]
 }
 ```
 
-Erros: `401`, `403`, `404` para unidade inexistente ou produto inexistente, desativado ou sem oferta ativa na unidade (`PRODUTO_INDISPONIVEL`), `409` para estoque insuficiente ou `422` para canal, quantidade ou itens inválidos.
+Erros: `401`, `403`, `404` para unidade inexistente ou produto inexistente, desativado ou sem oferta ativa na unidade (`PRODUTO_INDISPONIVEL`), `409` para estoque insuficiente, saldo de pontos insuficiente (`SALDO_PONTOS_INSUFICIENTE`) ou consentimento de fidelidade inativo (`FIDELIDADE_INATIVA`), `403` (`PERFIL_SEM_PERMISSAO`) quando um funcionário tenta resgatar pontos, ou `422` para canal, quantidade, itens ou pontos inválidos (`pontos_resgatados` fora de múltiplos de 100 ou `DESCONTO_ACIMA_DO_LIMITE`).
 
 ### GET `/pedidos/{pedido_id}`
 
@@ -182,7 +187,7 @@ Simula o provedor de pagamento. Body:
 
 | `resultado` | Efeito |
 | --- | --- |
-| `APROVADO` | Grava o pagamento, muda o pedido para `CONFIRMADO` e consome a reserva. |
+| `APROVADO` | Grava o pagamento, muda o pedido para `CONFIRMADO` e consome a reserva. Se o pedido é de um cliente com consentimento `FIDELIDADE` ativo, credita 1 ponto por real pago (arredondando para baixo). |
 | `RECUSADO` | Grava o pagamento, muda o pedido para `CANCELADO` (`PAGAMENTO_RECUSADO`) e devolve a reserva. |
 | `FALHA` | Simula o provedor fora do ar: responde `503` (`PAGAMENTO_INDISPONIVEL`), não grava pagamento e registra `PAGAMENTO_FALHA` na auditoria. O pedido continua `AGUARDANDO_PAGAMENTO`, com a reserva sujeita ao prazo, e pode ser pago depois. |
 
@@ -261,6 +266,29 @@ Histórico de movimentações da unidade, da mais recente para a mais antiga. Di
 Exemplo: `GET /unidades/1/estoque/movimentacoes?produtoId=1`.
 
 Erros: `401`, `403` e `422` para parâmetros inválidos.
+
+### GET `/me/fidelidade`
+
+Saldo e extrato de pontos do cliente autenticado. Funcionários recebem `403`.
+
+Resposta `200`:
+
+```json
+{
+  "saldo_pontos":45,
+  "consentimento_ativo":true,
+  "regras":{"pontos_por_real_pago":1,"pontos_por_resgate":100,"desconto_por_resgate_centavos":500,"desconto_maximo_percentual":50},
+  "extrato":[
+    {"id":3,"pedido_id":2,"tipo":"CREDITO","pontos":32,"criado_em":"2026-11-23T20:10:00Z"},
+    {"id":2,"pedido_id":2,"tipo":"DEBITO","pontos":100,"criado_em":"2026-11-23T20:09:00Z"},
+    {"id":1,"pedido_id":1,"tipo":"CREDITO","pontos":113,"criado_em":"2026-11-23T20:08:00Z"}
+  ]
+}
+```
+
+- `CREDITO`: pontos ganhos em pedido pago. `DEBITO`: pontos usados como desconto. `ESTORNO`: pontos devolvidos quando o pedido com desconto não foi pago.
+- O saldo é a soma de créditos e estornos menos os débitos. O extrato mostra os últimos 100 movimentos, do mais recente para o mais antigo.
+- Sem consentimento `FIDELIDADE` ativo, o cliente compra normalmente, mas não acumula nem resgata. Ao revogar, o saldo fica congelado e volta a valer com um novo consentimento.
 
 ### GET `/me/consentimentos`
 

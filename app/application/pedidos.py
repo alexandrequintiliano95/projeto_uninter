@@ -6,6 +6,8 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
+from app.application import fidelidade
+
 from app.domain.enums import CanalPedido, CenarioPagamento, MotivoCancelamento, Perfil, ResultadoPagamento, StatusPedido
 from app.domain.errors import Conflito, DadosInvalidos, NaoEncontrado, ServicoIndisponivel
 from app.domain.regras import PRAZO_RESERVA, exigir_acesso_ao_pedido, exigir_pode_cancelar, exigir_pode_criar_pedido, exigir_pode_pagar, precisa_cancelar, validar_mudanca_status
@@ -29,6 +31,8 @@ class PedidoDetalhado:
     canal_pedido: str
     status: str
     total_centavos: int
+    desconto_centavos: int
+    pontos_resgatados: int
     motivo_cancelamento: str | None
     expira_em: datetime
     itens: list[ItemDetalhado]
@@ -58,6 +62,8 @@ def _detalhar(session: Session, pedido: Pedido) -> PedidoDetalhado:
         canal_pedido=pedido.canal_pedido,
         status=pedido.status,
         total_centavos=pedido.total_centavos,
+        desconto_centavos=pedido.desconto_centavos,
+        pontos_resgatados=pedido.pontos_resgatados,
         motivo_cancelamento=pedido.motivo_cancelamento,
         expira_em=pedido.expira_em,
         itens=itens,
@@ -88,6 +94,7 @@ def _movimentar_reserva(session: Session, pedido: Pedido, *, devolver: bool) -> 
 
 def _cancelar(session: Session, pedido: Pedido, motivo: MotivoCancelamento, agora: datetime) -> None:
     _movimentar_reserva(session, pedido, devolver=True)
+    fidelidade.estornar_resgate(session, pedido)
     pedido.status = StatusPedido.CANCELADO.value
     pedido.motivo_cancelamento = motivo.value
     pedido.atualizado_em = agora
@@ -102,8 +109,11 @@ def expirar_pedidos(session: Session, unidade_id: int | None = None) -> None:
         auditoria.registrar(None, pedido.unidade_id, "PEDIDO_EXPIRADO", "PEDIDO", pedido.id)
 
 
-def criar_pedido(session: Session, usuario: Usuario, unidade_id: int, canal: CanalPedido, itens: list[tuple[int, int]]) -> PedidoDetalhado:
-    """Cria o pedido e reserva o estoque. `itens` são pares (produto_id, quantidade)."""
+def criar_pedido(session: Session, usuario: Usuario, unidade_id: int, canal: CanalPedido, itens: list[tuple[int, int]], pontos_resgatados: int = 0) -> PedidoDetalhado:
+    """Cria o pedido e reserva o estoque. `itens` são pares (produto_id, quantidade).
+
+    Com `pontos_resgatados`, os pontos viram desconto (debitados agora e estornados se o pedido for cancelado).
+    """
     exigir_pode_criar_pedido(usuario.perfil, canal, usuario.unidade_id, unidade_id)
     catalogo = CatalogoRepositorio(session)
     unidade = catalogo.unidade(unidade_id)
@@ -123,6 +133,7 @@ def criar_pedido(session: Session, usuario: Usuario, unidade_id: int, canal: Can
         if oferta.saldo_livre < quantidade:
             raise Conflito("ESTOQUE_INSUFICIENTE", "Não há quantidade suficiente para um ou mais itens.")
         total += oferta.preco_centavos * quantidade
+    desconto = fidelidade.calcular_desconto(session, usuario, pontos_resgatados, total) if pontos_resgatados else 0
     agora = _agora()
     pedido = Pedido(
         unidade_id=unidade_id,
@@ -130,7 +141,9 @@ def criar_pedido(session: Session, usuario: Usuario, unidade_id: int, canal: Can
         cliente_id=usuario.id if usuario.perfil == Perfil.CLIENTE else None,
         canal_pedido=canal.value,
         status=StatusPedido.AGUARDANDO_PAGAMENTO.value,
-        total_centavos=total,
+        total_centavos=total - desconto,
+        desconto_centavos=desconto,
+        pontos_resgatados=pontos_resgatados,
         criado_em=agora,
         atualizado_em=agora,
         expira_em=agora + PRAZO_RESERVA,
@@ -142,6 +155,7 @@ def criar_pedido(session: Session, usuario: Usuario, unidade_id: int, canal: Can
         oferta.saldo_livre -= quantidade
         oferta.saldo_reservado += quantidade
         repositorio.adicionar_item(ItemPedido(pedido_id=pedido.id, produto_unidade_id=oferta.id, nome_produto=produtos[produto_id].nome, quantidade=quantidade, preco_unitario_centavos=oferta.preco_centavos))
+    fidelidade.debitar_resgate(session, pedido)
     AuditoriaRepositorio(session).registrar(usuario.id, unidade_id, "PEDIDO_CRIADO", "PEDIDO", pedido.id)
     session.commit()
     return _detalhar(session, pedido)
@@ -200,6 +214,7 @@ def pagar_mock(session: Session, usuario: Usuario, pedido_id: int, cenario: Cena
         pedido.status = StatusPedido.CONFIRMADO.value
         pedido.motivo_cancelamento = None
         pedido.atualizado_em = agora
+        fidelidade.creditar_pagamento(session, pedido)
     else:
         _cancelar(session, pedido, MotivoCancelamento.PAGAMENTO_RECUSADO, agora)
     auditoria.registrar(usuario.id, pedido.unidade_id, "PAGAMENTO_MOCK", "PEDIDO", pedido.id, resultado.value)

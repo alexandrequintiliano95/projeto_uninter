@@ -25,8 +25,15 @@ def auth(client: TestClient, credentials: tuple[str, str]) -> dict[str, str]:
     return {"Authorization": f"Bearer {response.json()['access_token']}"}
 
 
-def create_order(client: TestClient, headers: dict[str, str], *, unidade_id: int = 1, canal: str = "APP", produto_id: int = 1) -> dict:
-    response = client.post("/pedidos", headers=headers, json={"unidade_id": unidade_id, "canal_pedido": canal, "itens": [{"produto_id": produto_id, "quantidade": 1}]})
+def order_payload(*, unidade_id: int = 1, canal: str = "APP", produto_id: int = 1, quantidade: int = 1, pontos: int | None = None) -> dict:
+    payload = {"unidade_id": unidade_id, "canal_pedido": canal, "itens": [{"produto_id": produto_id, "quantidade": quantidade}]}
+    if pontos is not None:
+        payload["pontos_resgatados"] = pontos
+    return payload
+
+
+def create_order(client: TestClient, headers: dict[str, str], **options) -> dict:
+    response = client.post("/pedidos", headers=headers, json=order_payload(**options))
     assert response.status_code == 201, response.text
     return response.json()
 
@@ -303,7 +310,7 @@ def test_swagger_describes_order_response(client: TestClient):
     openapi = client.get("/openapi.json").json()
     schema = openapi["paths"]["/pedidos"]["post"]["responses"]["201"]["content"]["application/json"]["schema"]
     properties = resolve_schema(openapi, schema)["properties"]
-    assert set(properties) == {"id", "unidade_id", "cliente_id", "canal_pedido", "status", "total_centavos", "motivo_cancelamento", "expira_em", "itens"}
+    assert set(properties) == {"id", "unidade_id", "cliente_id", "canal_pedido", "status", "total_centavos", "desconto_centavos", "pontos_resgatados", "motivo_cancelamento", "expira_em", "itens"}
 
 
 def test_token_with_invalid_subject_is_rejected(client: TestClient):
@@ -548,3 +555,110 @@ def test_signup_records_only_the_consents_given(client: TestClient):
     assert signup(client, aceita_fidelidade=True).status_code == 201
     consents = client.get("/me/consentimentos", headers=auth(client, ("maria@exemplo.com", "Segura123"))).json()
     assert [(item["finalidade"], item["concedido"], item["versao_termo"]) for item in consents] == [("FIDELIDADE", True, "v1")]
+
+
+
+# --- Fidelidade: pontos e resgate ----------------------------------------------
+# Tapioca (produto 1) custa R$ 18,90 na unidade 1: 6 unidades = R$ 113,40 = 113 pontos.
+
+
+def set_loyalty_consent(client: TestClient, headers: dict[str, str], granted: bool) -> None:
+    response = client.post("/me/consentimentos", headers=headers, json={"finalidade": "FIDELIDADE", "concedido": granted})
+    assert response.status_code == 200, response.text
+
+
+def pay(client: TestClient, headers: dict[str, str], order_id: int, resultado: str = "APROVADO") -> None:
+    response = client.post(f"/pedidos/{order_id}/pagamentos/mock", headers=headers, json={"resultado": resultado})
+    assert response.status_code == 200, response.text
+
+
+def loyalty(client: TestClient, headers: dict[str, str]) -> dict:
+    response = client.get("/me/fidelidade", headers=headers)
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def statement(client: TestClient, headers: dict[str, str]) -> list[tuple[str, int]]:
+    return [(item["tipo"], item["pontos"]) for item in loyalty(client, headers)["extrato"]]
+
+
+def earn_113_points(client: TestClient, headers: dict[str, str]) -> None:
+    set_loyalty_consent(client, headers, True)
+    pay(client, headers, create_order(client, headers, quantidade=6)["id"])
+
+
+def test_paid_order_earns_one_point_per_real_with_consent(client: TestClient):
+    headers = auth(client, CLIENTE)
+    set_loyalty_consent(client, headers, True)
+    order_id = create_order(client, headers, quantidade=2)["id"]
+    assert loyalty(client, headers)["saldo_pontos"] == 0
+    pay(client, headers, order_id)
+    data = loyalty(client, headers)
+    assert (data["saldo_pontos"], data["consentimento_ativo"]) == (37, True)
+    assert [(item["tipo"], item["pontos"], item["pedido_id"]) for item in data["extrato"]] == [("CREDITO", 37, order_id)]
+
+
+def test_purchase_without_consent_earns_no_points(client: TestClient):
+    headers = auth(client, CLIENTE)
+    pay(client, headers, create_order(client, headers, quantidade=6)["id"])
+    data = loyalty(client, headers)
+    assert (data["saldo_pontos"], data["consentimento_ativo"], data["extrato"]) == (0, False, [])
+
+
+def test_points_become_discount_and_paid_value_earns_points(client: TestClient):
+    headers = auth(client, CLIENTE)
+    earn_113_points(client, headers)
+    order = create_order(client, headers, quantidade=2, pontos=100)
+    assert (order["total_centavos"], order["desconto_centavos"], order["pontos_resgatados"]) == (3280, 500, 100)
+    assert loyalty(client, headers)["saldo_pontos"] == 13
+    pay(client, headers, order["id"])
+    assert loyalty(client, headers)["saldo_pontos"] == 45
+    assert statement(client, headers) == [("CREDITO", 32), ("DEBITO", 100), ("CREDITO", 113)]
+
+
+def test_cancelled_order_returns_redeemed_points(client: TestClient):
+    headers = auth(client, CLIENTE)
+    earn_113_points(client, headers)
+    order_id = create_order(client, headers, quantidade=2, pontos=100)["id"]
+    assert client.post(f"/pedidos/{order_id}/cancelamento", headers=headers).status_code == 200
+    assert loyalty(client, headers)["saldo_pontos"] == 113
+    assert statement(client, headers) == [("ESTORNO", 100), ("DEBITO", 100), ("CREDITO", 113)]
+
+
+def test_refused_payment_returns_redeemed_points(client: TestClient):
+    headers = auth(client, CLIENTE)
+    earn_113_points(client, headers)
+    order_id = create_order(client, headers, quantidade=2, pontos=100)["id"]
+    pay(client, headers, order_id, "RECUSADO")
+    assert loyalty(client, headers)["saldo_pontos"] == 113
+
+
+def test_revoked_consent_freezes_points(client: TestClient):
+    headers = auth(client, CLIENTE)
+    earn_113_points(client, headers)
+    set_loyalty_consent(client, headers, False)
+    pay(client, headers, create_order(client, headers, quantidade=6)["id"])
+    assert loyalty(client, headers)["saldo_pontos"] == 113
+    blocked = client.post("/pedidos", headers=headers, json=order_payload(quantidade=2, pontos=100))
+    assert_error(blocked, 409, "FIDELIDADE_INATIVA", "/pedidos")
+    set_loyalty_consent(client, headers, True)
+    assert create_order(client, headers, quantidade=2, pontos=100)["desconto_centavos"] == 500
+
+
+def test_redemption_limits(client: TestClient):
+    headers = auth(client, CLIENTE)
+    earn_113_points(client, headers)
+    not_multiple = client.post("/pedidos", headers=headers, json=order_payload(quantidade=2, pontos=150))
+    assert [detail["field"] for detail in assert_error(not_multiple, 422, "DADOS_INVALIDOS", "/pedidos")["details"]] == ["pontos_resgatados"]
+    assert_error(client.post("/pedidos", headers=headers, json=order_payload(quantidade=6, pontos=200)), 409, "SALDO_PONTOS_INSUFICIENTE", "/pedidos")
+    assert_error(client.post("/pedidos", headers=headers, json=order_payload(produto_id=3, pontos=100)), 422, "DESCONTO_ACIMA_DO_LIMITE", "/pedidos")
+    assert loyalty(client, headers)["saldo_pontos"] == 113
+
+
+def test_staff_orders_cannot_redeem_points(client: TestClient):
+    response = client.post("/pedidos", headers=auth(client, ATENDENTE_RECIFE), json=order_payload(canal="BALCAO", pontos=100))
+    assert_error(response, 403, "PERFIL_SEM_PERMISSAO", "/pedidos")
+
+
+def test_loyalty_statement_is_only_for_clients(client: TestClient):
+    assert_error(client.get("/me/fidelidade", headers=auth(client, GERENTE_RECIFE)), 403, "PERFIL_SEM_PERMISSAO", "/me/fidelidade")

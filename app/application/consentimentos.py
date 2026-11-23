@@ -30,3 +30,9 @@ def registrar(session: Session, usuario: Usuario, finalidade: FinalidadeConsenti
     evento = adicionar_evento(session, usuario, finalidade, concedido, versao_termo)
     session.commit()
     return evento
+
+
+def consentimento_ativo(session: Session, usuario_id: int, finalidade: FinalidadeConsentimento) -> bool:
+    """Vale o evento mais recente da finalidade; sem evento, não há consentimento."""
+    ultimo = ConsentimentoRepositorio(session).ultimo(usuario_id, finalidade.value)
+    return bool(ultimo and ultimo.concedido)

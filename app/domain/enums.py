@@ -51,6 +51,14 @@ class TipoMovimentacao(StrEnum):
     SAIDA = "SAIDA"
 
 
+class TipoMovimentoFidelidade(StrEnum):
+    """CREDITO: pontos ganhos em pedido pago. DEBITO: pontos usados como desconto. ESTORNO: pontos devolvidos quando o pedido com desconto é cancelado."""
+
+    CREDITO = "CREDITO"
+    DEBITO = "DEBITO"
+    ESTORNO = "ESTORNO"
+
+
 class MotivoCancelamento(StrEnum):
     SOLICITADO = "SOLICITADO"
     PAGAMENTO_RECUSADO = "PAGAMENTO_RECUSADO"

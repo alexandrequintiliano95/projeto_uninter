@@ -65,6 +65,8 @@ class Pedido(Base):
     criado_em: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     atualizado_em: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     expira_em: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    desconto_centavos: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    pontos_resgatados: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     __table_args__ = (
         CheckConstraint("canal_pedido IN ('APP','TOTEM','BALCAO','PICKUP','WEB')", name="ck_pedido_canal"),
         CheckConstraint("status IN ('AGUARDANDO_PAGAMENTO','CONFIRMADO','EM_PREPARO','PRONTO','ENTREGUE','CANCELADO')", name="ck_pedido_status"),
@@ -140,4 +142,20 @@ class MovimentacaoEstoque(Base):
         CheckConstraint("tipo IN ('ENTRADA','SAIDA')", name="ck_movimentacao_tipo"),
         CheckConstraint("quantidade > 0", name="ck_movimentacao_quantidade_positiva"),
         CheckConstraint("saldo_livre_anterior >= 0 AND saldo_livre_novo >= 0", name="ck_movimentacao_saldos_nao_negativos"),
+    )
+
+
+class FidelidadeMovimento(Base):
+    """Extrato de pontos do cliente. O saldo é a soma de créditos e estornos menos os débitos."""
+
+    __tablename__ = "fidelidade_movimento"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuario.id"), nullable=False)
+    pedido_id: Mapped[int] = mapped_column(ForeignKey("pedido.id"), nullable=False)
+    tipo: Mapped[str] = mapped_column(String(8), nullable=False)
+    pontos: Mapped[int] = mapped_column(Integer, nullable=False)
+    criado_em: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    __table_args__ = (
+        CheckConstraint("tipo IN ('CREDITO','DEBITO','ESTORNO')", name="ck_fidelidade_tipo"),
+        CheckConstraint("pontos > 0", name="ck_fidelidade_pontos_positivos"),
     )

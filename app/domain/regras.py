@@ -9,6 +9,12 @@ from .errors import Conflito, DadosInvalidos, NaoEncontrado, PermissaoNegada
 PRAZO_RESERVA = timedelta(minutes=15)
 VERSAO_TERMOS_DE_USO = "v1"
 
+# Fidelidade: 1 ponto por real pago; cada lote de 100 pontos vale R$ 5,00 de desconto, até 50% do pedido.
+CENTAVOS_POR_PONTO_GANHO = 100
+PONTOS_POR_RESGATE = 100
+CENTAVOS_POR_RESGATE = 500
+DESCONTO_MAXIMO_PERCENTUAL = 50
+
 CANAIS_CLIENTE = frozenset({CanalPedido.APP, CanalPedido.WEB, CanalPedido.PICKUP})
 CANAIS_EQUIPE = frozenset({CanalPedido.BALCAO, CanalPedido.TOTEM, CanalPedido.PICKUP})
 PERFIS_QUE_PAGAM = frozenset({Perfil.CLIENTE, Perfil.ATENDENTE, Perfil.GERENTE})
@@ -99,3 +105,27 @@ def exigir_senha_forte(senha: str) -> None:
     tamanho_ok = 8 <= len(senha) <= 128
     if not (tamanho_ok and any(c.isalpha() for c in senha) and any(c.isdigit() for c in senha)):
         raise DadosInvalidos("SENHA_FRACA", "A senha precisa ter de 8 a 128 caracteres, com pelo menos uma letra e um número.")
+
+
+def pontos_ganhos(valor_pago_centavos: int) -> int:
+    """1 ponto por real efetivamente pago, arredondando para baixo."""
+    return valor_pago_centavos // CENTAVOS_POR_PONTO_GANHO
+
+
+def exigir_pode_resgatar(perfil: str, consentimento_ativo: bool) -> None:
+    """Só o cliente resgata, e só com o consentimento de fidelidade ativo (revogado, o saldo fica congelado)."""
+    exigir_perfil(perfil, frozenset({Perfil.CLIENTE}), "Somente clientes resgatam pontos de fidelidade.")
+    if not consentimento_ativo:
+        raise Conflito("FIDELIDADE_INATIVA", "O consentimento do programa de fidelidade não está ativo. Os pontos ficam guardados até um novo consentimento.")
+
+
+def desconto_do_resgate(pontos: int, saldo: int, total_centavos: int) -> int:
+    """Converte pontos em desconto: múltiplos de 100, dentro do saldo e até 50% do valor do pedido."""
+    if pontos <= 0 or pontos % PONTOS_POR_RESGATE:
+        raise DadosInvalidos("RESGATE_INVALIDO", f"O resgate deve usar múltiplos de {PONTOS_POR_RESGATE} pontos.")
+    if pontos > saldo:
+        raise Conflito("SALDO_PONTOS_INSUFICIENTE", "Saldo de pontos insuficiente para este resgate.")
+    desconto = pontos // PONTOS_POR_RESGATE * CENTAVOS_POR_RESGATE
+    if desconto * 100 > total_centavos * DESCONTO_MAXIMO_PERCENTUAL:
+        raise DadosInvalidos("DESCONTO_ACIMA_DO_LIMITE", f"O desconto não pode passar de {DESCONTO_MAXIMO_PERCENTUAL}% do valor do pedido.")
+    return desconto

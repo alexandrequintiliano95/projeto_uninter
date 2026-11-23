@@ -36,33 +36,37 @@ app/
   domain/
     enums.py             Perfil, CanalPedido, StatusPedido, ResultadoPagamento,
                          CenarioPagamento, FinalidadeConsentimento, MotivoCancelamento,
-                         TipoMovimentacao
+                         TipoMovimentacao, TipoMovimentoFidelidade
     errors.py            ErroDominio e subclasses (NaoAutenticado, PermissaoNegada,
                          NaoEncontrado, Conflito, DadosInvalidos, ServicoIndisponivel)
     regras.py            canais por perfil, quem paga e quem cancela, transições
                          de status, quando cancelar, acesso ao pedido, prazo da reserva,
                          gerente da unidade, saldo após movimentação de estoque,
-                         senha forte e versão dos termos de uso
+                         senha forte e versão dos termos de uso, pontos ganhos e
+                         desconto do resgate de fidelidade
   application/
     auth.py              cadastro de cliente, login e identificação do usuário pelo token
     catalogo.py          unidades e cardápio (libera reservas vencidas antes)
     pedidos.py           expirar, criar, consultar, listar, pagar (mock), cancelar,
                          mudar status
     estoque.py           registrar e listar movimentações de estoque
+    fidelidade.py        crédito, resgate, estorno e extrato de pontos
     consentimentos.py    listar e registrar consentimentos
     auditoria.py         consultar auditoria da unidade
   infrastructure/
     db.py                engine, sessão e Base (movido de app/db.py)
     models.py            tabelas ORM (movido de app/models.py)
     repositorios.py      classes de consulta: Usuario, Catalogo, Oferta, Pedido,
-                         Pagamento, Movimentacao, Consentimento e Auditoria
+                         Pagamento, Movimentacao, Fidelidade, Consentimento e Auditoria
     seguranca.py         hash de senha (Argon2) e JWT
   api/
     deps.py              sessão do banco, esquema Bearer e usuário autenticado
     erros.py             formato único de erro e conversão ErroDominio -> HTTP
     schemas.py           modelos Pydantic de entrada e saída
-    rotas/               auth, catalogo, pedidos, estoque, consentimentos, auditoria
-migrations/versions/     0001 (modelo inicial) e 0002 (movimentacao_estoque),
+    rotas/               auth, catalogo, pedidos, estoque, consentimentos, fidelidade,
+                         auditoria
+migrations/versions/     0001 (modelo inicial), 0002 (movimentacao_estoque) e
+                         0003 (fidelidade_movimento e desconto no pedido),
                          conferidas contra os modelos por tests/test_migracoes.py
 ```
 

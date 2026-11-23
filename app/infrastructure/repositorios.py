@@ -3,10 +3,10 @@
 
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
-from .models import Auditoria, ConsentimentoEvento, ItemPedido, MovimentacaoEstoque, Pagamento, Pedido, Produto, ProdutoUnidade, Unidade, Usuario
+from .models import Auditoria, ConsentimentoEvento, FidelidadeMovimento, ItemPedido, MovimentacaoEstoque, Pagamento, Pedido, Produto, ProdutoUnidade, Unidade, Usuario
 
 
 class UsuarioRepositorio:
@@ -136,6 +136,10 @@ class ConsentimentoRepositorio:
         self.session.add(evento)
         self.session.flush()
 
+    def ultimo(self, usuario_id: int, finalidade: str) -> ConsentimentoEvento | None:
+        query = select(ConsentimentoEvento).where(ConsentimentoEvento.usuario_id == usuario_id, ConsentimentoEvento.finalidade == finalidade).order_by(ConsentimentoEvento.id.desc()).limit(1)
+        return self.session.scalar(query)
+
 
 class AuditoriaRepositorio:
     def __init__(self, session: Session) -> None:
@@ -170,3 +174,20 @@ class MovimentacaoRepositorio:
         if produto_id is not None:
             query = query.where(ProdutoUnidade.produto_id == produto_id)
         return [(movimentacao, oferta) for movimentacao, oferta in self.session.execute(query)]
+
+
+class FidelidadeRepositorio:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def adicionar(self, movimento: FidelidadeMovimento) -> None:
+        self.session.add(movimento)
+
+    def saldo(self, usuario_id: int) -> int:
+        """Créditos e estornos somam; débitos subtraem."""
+        valor = case((FidelidadeMovimento.tipo == "DEBITO", -FidelidadeMovimento.pontos), else_=FidelidadeMovimento.pontos)
+        return self.session.scalar(select(func.coalesce(func.sum(valor), 0)).where(FidelidadeMovimento.usuario_id == usuario_id))
+
+    def extrato(self, usuario_id: int, limite: int = 100) -> list[FidelidadeMovimento]:
+        query = select(FidelidadeMovimento).where(FidelidadeMovimento.usuario_id == usuario_id).order_by(FidelidadeMovimento.id.desc()).limit(limite)
+        return list(self.session.scalars(query))

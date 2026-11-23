@@ -11,7 +11,7 @@ Decisões para implementar o fluxo pedido → pagamento mock → preparo → ent
 - Estoque contado em unidades inteiras de produto pronto. Ingredientes e receitas ficam como evolução.
 - Preço, disponibilidade e estoque local ficam juntos em `produto_unidade`.
 - Pagamento totalmente simulado, à vista e pelo valor integral. Um pedido tem no máximo um resultado de pagamento.
-- Compra não exige adesão à fidelidade ou marketing. Pontos, resgate, campanhas e relatórios da matriz ficam descritos como evolução.
+- Compra não exige adesão à fidelidade ou marketing. Com consentimento `FIDELIDADE` ativo, o cliente ganha 1 ponto por real pago e pode usar cada 100 pontos como R$ 5,00 de desconto, até 50% do pedido. Validade de pontos, níveis de cliente, campanhas e relatórios da matriz ficam descritos como evolução.
 
 ## 2. Perfis e permissões
 
@@ -28,6 +28,7 @@ Decisões para implementar o fluxo pedido → pagamento mock → preparo → ent
 | Ajustar oferta, preço e estoque local | Não | Não | Não | Na própria unidade, com motivo registrado |
 | Consultar auditoria | Não | Não | Não | Da própria unidade |
 | Consultar/alterar consentimentos | Somente próprios | Não | Não | Não |
+| Consultar saldo e extrato de pontos; resgatar pontos no pedido | Somente próprios, com consentimento `FIDELIDADE` ativo para resgatar | Não | Não | Não |
 
 Regras de aplicação:
 
@@ -90,7 +91,7 @@ O simulador recebe um cenário de teste de aprovação ou recusa e retorna um re
 
 ## 4. DER proposto
 
-São dez tabelas: as nove da migração inicial e `movimentacao_estoque`, criada pela migração `0002`. Os nomes abaixo são os nomes internos do banco; a API usa `canalPedido` para o campo interno `canal_pedido`. Campos terminados em `_centavos` são inteiros: por exemplo, R$ 12,50 é gravado como `1250`, evitando arredondamento de ponto flutuante.
+São onze tabelas: as nove da migração inicial, `movimentacao_estoque` (migração `0002`) e `fidelidade_movimento` (migração `0003`, que também acrescenta `desconto_centavos` e `pontos_resgatados` ao pedido). Os nomes abaixo são os nomes internos do banco; a API usa `canalPedido` para o campo interno `canal_pedido`. Campos terminados em `_centavos` são inteiros: por exemplo, R$ 12,50 é gravado como `1250`, evitando arredondamento de ponto flutuante.
 
 ```mermaid
 erDiagram
@@ -108,6 +109,8 @@ erDiagram
     UNIDADE o|--o{ AUDITORIA : contextualiza
     PRODUTO_UNIDADE ||--o{ MOVIMENTACAO_ESTOQUE : movimenta
     USUARIO ||--o{ MOVIMENTACAO_ESTOQUE : registra
+    USUARIO ||--o{ FIDELIDADE_MOVIMENTO : acumula
+    PEDIDO ||--o{ FIDELIDADE_MOVIMENTO : origina
 
     UNIDADE {
         int id PK
@@ -147,7 +150,9 @@ erDiagram
         int cliente_id FK "opcional"
         string canal_pedido
         string status
-        int total_centavos
+        int total_centavos "valor a pagar, já com desconto"
+        int desconto_centavos
+        int pontos_resgatados
         string motivo_cancelamento "opcional"
         datetime criado_em
         datetime atualizado_em
@@ -186,6 +191,14 @@ erDiagram
         string detalhes
         datetime criado_em
     }
+    FIDELIDADE_MOVIMENTO {
+        int id PK
+        int usuario_id FK "cliente"
+        int pedido_id FK
+        string tipo "CREDITO, DEBITO ou ESTORNO"
+        int pontos
+        datetime criado_em
+    }
     MOVIMENTACAO_ESTOQUE {
         int id PK
         int produto_unidade_id FK
@@ -210,9 +223,10 @@ Na relação da equipe, cada funcionário possui exatamente uma unidade; um clie
 | produto_unidade | `UNIQUE(unidade_id, produto_id)`; preço maior que zero; saldos inteiros não negativos. |
 | pedido | Canal e status limitados aos valores definidos; total positivo; expiração posterior à criação; motivo compatível com cancelamento. Unidade/criador/cliente/canal não mudam após criar. |
 | item_pedido | `UNIQUE(pedido_id, produto_unidade_id)`; quantidade inteira positiva; preço positivo. A aplicação rejeita itens repetidos no request com `422` e exige que todas as ofertas pertençam à unidade do pedido. |
-| Valores | O servidor busca o preço da oferta e grava uma cópia no item. Total é a soma de quantidade × preço dos itens; o nome também fica preservado. Valores de preço/total enviados pelo cliente não são usados como autoridade. Não há taxa nem desconto no MVP. |
+| Valores | O servidor busca o preço da oferta e grava uma cópia no item. Total é a soma de quantidade × preço dos itens; o nome também fica preservado. Valores de preço/total enviados pelo cliente não são usados como autoridade. Não há taxa. O único desconto é o resgate de pontos: `total_centavos` = soma dos itens − `desconto_centavos`, e o pagamento usa esse total. |
 | pagamento | Pedido único; valor igual ao total do pedido; resultado entre APROVADO/RECUSADO. Resultado e valor são imutáveis. A aplicação mantém correspondência entre resultado e estado do pedido. |
 | consentimento_evento | Finalidade FIDELIDADE ou MARKETING; versão do termo e data obrigatórias. Sem evento, não há consentimento. A opção atual é o evento mais recente por finalidade, ordenado por data e ID. Concessão e revogação acrescentam eventos; não sobrescrevem o histórico. |
+| fidelidade_movimento | Tipo `CREDITO`, `DEBITO` ou `ESTORNO`; pontos inteiros positivos; sempre ligado a um pedido. Saldo = créditos + estornos − débitos, nunca negativo (o resgate confere o saldo). Crédito só com consentimento ativo no pagamento; estorno só para pedido com pontos resgatados que foi cancelado. Registros não são editados nem apagados. |
 | movimentacao_estoque | Tipo `ENTRADA` ou `SAIDA`; quantidade inteira positiva; motivo obrigatório (3 a 200 caracteres); saldos anterior e novo não negativos. Altera só o saldo livre da oferta: a saída nunca passa do saldo livre e nunca retira itens reservados. Registros não são editados nem apagados. |
 | auditoria | Registrar criação, pagamento, mudanças de status, cancelamento, expiração, ajuste de estoque/preço e alterações/consultas de consentimento. Incluir valores anteriores/novos necessários, sem senha, token, e-mail ou conteúdo completo de requests. |
 

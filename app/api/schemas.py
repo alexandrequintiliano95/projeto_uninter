@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from app.application.estoque import MovimentacaoDetalhada
 from app.application.pedidos import PedidoDetalhado
-from app.domain.enums import CanalPedido, CenarioPagamento, FinalidadeConsentimento, ResultadoPagamento, StatusPedido, TipoMovimentacao
+from app.domain.enums import CanalPedido, CenarioPagamento, FinalidadeConsentimento, ResultadoPagamento, StatusPedido, TipoMovimentacao, TipoMovimentoFidelidade
 
 
 def utc_iso(valor: datetime) -> str:
@@ -72,6 +72,7 @@ class PedidoRequest(BaseModel):
     unidade_id: int = Field(gt=0)
     canal_pedido: CanalPedido
     itens: list[PedidoItemRequest] = Field(min_length=1)
+    pontos_resgatados: int = Field(0, ge=0, multiple_of=100, description="Pontos de fidelidade usados como desconto (múltiplos de 100; cada 100 valem R$ 5,00; até 50% do pedido). Só para clientes com consentimento ativo.")
 
 
 class ItemPedidoResponse(BaseModel):
@@ -88,6 +89,8 @@ class PedidoResponse(BaseModel):
     canal_pedido: CanalPedido
     status: StatusPedido
     total_centavos: int
+    desconto_centavos: int
+    pontos_resgatados: int
     motivo_cancelamento: str | None
     expira_em: str
     itens: list[ItemPedidoResponse]
@@ -101,6 +104,8 @@ class PedidoResponse(BaseModel):
             canal_pedido=pedido.canal_pedido,
             status=pedido.status,
             total_centavos=pedido.total_centavos,
+            desconto_centavos=pedido.desconto_centavos,
+            pontos_resgatados=pedido.pontos_resgatados,
             motivo_cancelamento=pedido.motivo_cancelamento,
             expira_em=utc_iso(pedido.expira_em),
             itens=[ItemPedidoResponse(produto_id=item.produto_id, nome=item.nome, quantidade=item.quantidade, preco_unitario_centavos=item.preco_unitario_centavos) for item in pedido.itens],
@@ -181,3 +186,25 @@ class MovimentacaoResponse(BaseModel):
             usuario_id=movimentacao.usuario_id,
             criado_em=utc_iso(movimentacao.criado_em),
         )
+
+
+class MovimentoFidelidadeResponse(BaseModel):
+    id: int
+    pedido_id: int
+    tipo: TipoMovimentoFidelidade
+    pontos: int
+    criado_em: str
+
+
+class RegrasFidelidadeResponse(BaseModel):
+    pontos_por_real_pago: int
+    pontos_por_resgate: int
+    desconto_por_resgate_centavos: int
+    desconto_maximo_percentual: int
+
+
+class FidelidadeResponse(BaseModel):
+    saldo_pontos: int
+    consentimento_ativo: bool
+    regras: RegrasFidelidadeResponse
+    extrato: list[MovimentoFidelidadeResponse]

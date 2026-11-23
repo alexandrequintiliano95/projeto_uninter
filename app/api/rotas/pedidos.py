@@ -12,7 +12,7 @@ router = APIRouter(tags=["Pedidos"])
 @router.post("/pedidos", status_code=status.HTTP_201_CREATED, response_model=PedidoResponse)
 def create_order(data: PedidoRequest, user: UsuarioAtual, session: Sessao) -> PedidoResponse:
     itens = [(item.produto_id, item.quantidade) for item in data.itens]
-    return PedidoResponse.de(pedidos.criar_pedido(session, user, data.unidade_id, data.canal_pedido, itens))
+    return PedidoResponse.de(pedidos.criar_pedido(session, user, data.unidade_id, data.canal_pedido, itens, data.pontos_resgatados))
 
 
 @router.get("/pedidos/{pedido_id}", response_model=PedidoResponse)

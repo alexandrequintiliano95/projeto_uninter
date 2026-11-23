@@ -10,12 +10,15 @@ import pytest
 from app.domain.enums import CanalPedido, Perfil, StatusPedido, TipoMovimentacao
 from app.domain.errors import Conflito, DadosInvalidos, NaoEncontrado, PermissaoNegada
 from app.domain.regras import (
+    desconto_do_resgate,
     exigir_acesso_ao_pedido,
     exigir_gerente_da_unidade,
     exigir_pode_cancelar,
     exigir_pode_criar_pedido,
     exigir_pode_pagar,
+    exigir_pode_resgatar,
     exigir_senha_forte,
+    pontos_ganhos,
     precisa_cancelar,
     saldo_livre_apos_movimentacao,
     validar_mudanca_status,
@@ -164,3 +167,38 @@ def test_senha_precisa_ter_8_a_128_caracteres_com_letra_e_numero(senha, aceita):
     with pytest.raises(DadosInvalidos) as erro:
         exigir_senha_forte(senha)
     assert erro.value.codigo == "SENHA_FRACA"
+
+
+@pytest.mark.parametrize(("valor_pago_centavos", "pontos"), [(3780, 37), (99, 0), (10000, 100)])
+def test_um_ponto_por_real_pago_arredondando_para_baixo(valor_pago_centavos, pontos):
+    assert pontos_ganhos(valor_pago_centavos) == pontos
+
+
+@pytest.mark.parametrize(
+    ("pontos", "saldo", "total_centavos", "esperado"),
+    [
+        (100, 150, 2000, 500),
+        (200, 200, 2000, 1000),
+        (300, 300, 2000, "DESCONTO_ACIMA_DO_LIMITE"),
+        (200, 150, 5000, "SALDO_PONTOS_INSUFICIENTE"),
+        (150, 500, 5000, "RESGATE_INVALIDO"),
+        (0, 500, 5000, "RESGATE_INVALIDO"),
+    ],
+)
+def test_resgate_de_100_pontos_vale_5_reais_ate_metade_do_pedido(pontos, saldo, total_centavos, esperado):
+    if isinstance(esperado, int):
+        assert desconto_do_resgate(pontos, saldo, total_centavos) == esperado
+        return
+    with pytest.raises((DadosInvalidos, Conflito)) as erro:
+        desconto_do_resgate(pontos, saldo, total_centavos)
+    assert erro.value.codigo == esperado
+
+
+def test_so_cliente_com_consentimento_ativo_resgata():
+    with pytest.raises(PermissaoNegada) as erro:
+        exigir_pode_resgatar(Perfil.ATENDENTE, consentimento_ativo=True)
+    assert erro.value.codigo == "PERFIL_SEM_PERMISSAO"
+    with pytest.raises(Conflito) as erro:
+        exigir_pode_resgatar(Perfil.CLIENTE, consentimento_ativo=False)
+    assert erro.value.codigo == "FIDELIDADE_INATIVA"
+    assert exigir_pode_resgatar(Perfil.CLIENTE, consentimento_ativo=True) is None
