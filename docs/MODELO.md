@@ -89,9 +89,13 @@ Criação, pagamento, cancelamento e expiração serão operações de banco at�
 
 O simulador recebe um cenário de teste de aprovação ou recusa e retorna um resultado local, sem chamada a provedor real. Há uma restrição `UNIQUE(pedido_id)` em `pagamento`. Repetir a mesma simulação retorna o pagamento já registrado; tentar trocar o resultado retorna `409`. A permissão é conferida mesmo na repetição. Não há segunda tentativa em pedido recusado; cria-se um novo pedido. Uma falha técnica simulada retorna `503`, mantém o pedido aguardando e não grava pagamento; a reserva continua sujeita ao prazo.
 
-## 4. DER proposto
+## 4. DER
 
-São onze tabelas: as nove da migração inicial, `movimentacao_estoque` (migração `0002`) e `fidelidade_movimento` (migração `0003`, que também acrescenta `desconto_centavos` e `pontos_resgatados` ao pedido). Os nomes abaixo são os nomes internos do banco; a API usa `canalPedido` para o campo interno `canal_pedido`. Campos terminados em `_centavos` são inteiros: por exemplo, R$ 12,50 é gravado como `1250`, evitando arredondamento de ponto flutuante.
+![DER da API Raízes do Nordeste](img/der.png)
+
+Versão vetorial em [img/der.svg](img/der.svg). O diagrama em Mermaid abaixo é a fonte da imagem.
+
+São onze tabelas: as nove da migração inicial, `movimentacao_estoque` (migração `0002`) e `fidelidade_movimento` (migração `0003`, que também acrescenta `desconto_centavos` e `pontos_resgatados` ao pedido). Os nomes abaixo são os nomes internos do banco. A API usa os mesmos nomes no corpo das requisições (por exemplo, `canal_pedido`); só os filtros da listagem de pedidos usam `canalPedido` e `status`. Campos terminados em `_centavos` são inteiros: por exemplo, R$ 12,50 é gravado como `1250`, evitando arredondamento de ponto flutuante.
 
 ```mermaid
 erDiagram

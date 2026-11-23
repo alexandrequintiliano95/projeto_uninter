@@ -72,7 +72,7 @@ Restrições propostas: `percentual` entre 1 e 50; `valor_centavos` positivo e n
 
 | Método e rota | Quem usa | O que faz |
 | --- | --- | --- |
-| `POST /unidades/{unidade_id}/promocoes` | Gerente da unidade | Cria a promoção. `422` para percentual fora de 1–50, fim antes do início ou tipo incompleto; `403` para outro perfil ou unidade. |
+| `POST /unidades/{unidade_id}/promocoes` | Gerente da unidade | Cria a promoção. `422` para percentual fora de 1 a 50, fim antes do início ou tipo incompleto; `403` para outro perfil ou unidade. |
 | `GET /unidades/{unidade_id}/promocoes` | Público | Lista as promoções vigentes da unidade, para o app mostrar. |
 | `POST /unidades/{unidade_id}/promocoes/{promocao_id}/encerramento` | Gerente da unidade | Encerra antes do fim, sem apagar. |
 

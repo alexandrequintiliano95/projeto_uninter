@@ -1,4 +1,4 @@
-# Projeto Uninter — API Raízes do Nordeste
+# Projeto Uninter: API Raízes do Nordeste
 
 > Nota: trechos alterados com apoio de IA (Claude Code) e revisados pelo autor.
 
@@ -97,7 +97,7 @@ Contas fictícias, apenas para testes locais:
 
 | Perfil | Unidade | E-mail | Senha |
 | --- | --- | --- | --- |
-| Cliente | — | `cliente@raizes.local` | `Cliente@123` |
+| Cliente | Nenhuma | `cliente@raizes.local` | `Cliente@123` |
 | Atendente | Recife Centro (1) | `atendente.recife@raizes.local` | `Atendente@123` |
 | Cozinha | Recife Centro (1) | `cozinha.recife@raizes.local` | `Cozinha@123` |
 | Gerente | Recife Centro (1) | `gerente.recife@raizes.local` | `Gerente@123` |
@@ -172,8 +172,10 @@ A divisão em camadas está explicada em [docs/ARQUITETURA.md](docs/ARQUITETURA.
 - [Contrato da API](docs/API.md)
 - [Arquitetura em camadas](docs/ARQUITETURA.md)
 - [Plano de testes](docs/PLANO_DE_TESTES.md)
+- [Casos de uso e caso de uso crítico](docs/CASOS_DE_USO.md)
+- [Tratamento de dados pessoais (LGPD)](docs/LGPD.md)
 - [Regras de promoção (proposta, não implementada)](docs/PROMOCOES.md)
-- [Diagramas da solução](docs/DIAGRAMAS.md)
+- [Diagramas da solução: casos de uso, DER, classes e sequência](docs/DIAGRAMAS.md)
 - [Plano de execução](PLAN.md) e [registro da revisão do plano](PLAN-REVIEW-LOG.md)
 - [Roteiro do relatório acadêmico](docs/RELATORIO_MODELO.md)
 

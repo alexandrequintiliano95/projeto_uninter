@@ -1,0 +1,121 @@
+---
+config:
+  theme: neutral
+  layout: elk
+---
+erDiagram
+    UNIDADE o|--o{ USUARIO : vincula_equipe
+    UNIDADE ||--o{ PRODUTO_UNIDADE : oferece
+    PRODUTO ||--o{ PRODUTO_UNIDADE : possui_oferta
+    UNIDADE ||--o{ PEDIDO : recebe
+    USUARIO ||--o{ PEDIDO : cria
+    USUARIO o|--o{ PEDIDO : cliente_opcional
+    PEDIDO ||--|{ ITEM_PEDIDO : contem
+    PRODUTO_UNIDADE ||--o{ ITEM_PEDIDO : origina
+    PEDIDO ||--o| PAGAMENTO : recebe_resultado
+    USUARIO ||--o{ CONSENTIMENTO_EVENTO : registra
+    USUARIO o|--o{ AUDITORIA : executa
+    UNIDADE o|--o{ AUDITORIA : contextualiza
+    PRODUTO_UNIDADE ||--o{ MOVIMENTACAO_ESTOQUE : movimenta
+    USUARIO ||--o{ MOVIMENTACAO_ESTOQUE : registra
+    USUARIO ||--o{ FIDELIDADE_MOVIMENTO : acumula
+    PEDIDO ||--o{ FIDELIDADE_MOVIMENTO : origina
+
+    UNIDADE {
+        int id PK
+        string nome
+        string cidade
+        string uf
+        boolean ativa
+    }
+    USUARIO {
+        int id PK
+        int unidade_id FK "nulo para CLIENTE"
+        string nome
+        string email UK
+        string senha_hash
+        string perfil
+        boolean ativo
+    }
+    PRODUTO {
+        int id PK
+        string nome
+        string descricao
+        boolean ativo
+    }
+    PRODUTO_UNIDADE {
+        int id PK
+        int unidade_id FK
+        int produto_id FK
+        int preco_centavos
+        int saldo_livre
+        int saldo_reservado
+        boolean ativo
+    }
+    PEDIDO {
+        int id PK
+        int unidade_id FK
+        int criado_por_id FK
+        int cliente_id FK "opcional"
+        string canal_pedido
+        string status
+        int total_centavos "valor a pagar, já com desconto"
+        int desconto_centavos
+        int pontos_resgatados
+        string motivo_cancelamento "opcional"
+        datetime criado_em
+        datetime atualizado_em
+        datetime expira_em
+    }
+    ITEM_PEDIDO {
+        int id PK
+        int pedido_id FK
+        int produto_unidade_id FK
+        string nome_produto
+        int quantidade
+        int preco_unitario_centavos
+    }
+    PAGAMENTO {
+        int id PK
+        int pedido_id FK, UK
+        string status
+        int valor_centavos
+        datetime criado_em
+    }
+    CONSENTIMENTO_EVENTO {
+        int id PK
+        int usuario_id FK
+        string finalidade
+        boolean concedido
+        string versao_termo
+        datetime criado_em
+    }
+    AUDITORIA {
+        int id PK
+        int usuario_id FK "nulo quando acao automatica"
+        int unidade_id FK "opcional"
+        string acao
+        string tipo_entidade
+        int entidade_id
+        string detalhes
+        datetime criado_em
+    }
+    FIDELIDADE_MOVIMENTO {
+        int id PK
+        int usuario_id FK "cliente"
+        int pedido_id FK
+        string tipo "CREDITO, DEBITO ou ESTORNO"
+        int pontos
+        datetime criado_em
+    }
+    MOVIMENTACAO_ESTOQUE {
+        int id PK
+        int produto_unidade_id FK
+        int usuario_id FK "gerente que registrou"
+        string tipo "ENTRADA ou SAIDA"
+        int quantidade
+        string motivo
+        int saldo_livre_anterior
+        int saldo_livre_novo
+        datetime criado_em
+    }

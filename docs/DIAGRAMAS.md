@@ -2,27 +2,19 @@
 
 > Nota: trechos alterados com apoio de IA (Claude Code) e revisados pelo autor.
 
-Os diagramas representam o MVP implementado. O DER completo está em [MODELO.md](MODELO.md).
+Os diagramas representam o MVP implementado. O DER, com restrições e regras de cada tabela, está detalhado em [MODELO.md](MODELO.md).
 
 ## Casos de uso
 
-```mermaid
-flowchart LR
-    Cliente[Cliente]
-    Atendente[Atendente]
-    Cozinha[Cozinha]
-    Gerente[Gerente]
-    API((API Raízes do Nordeste))
-    Gateway[Pagamento mock]
+![Diagrama UML de casos de uso](img/casos-de-uso.png)
 
-    Cliente -->|login, cardápio, pedido próprio, pagamento| API
-    Atendente -->|pedido balcão, entrega, consulta da unidade| API
-    Cozinha -->|consulta e preparo| API
-    Gerente -->|consulta, preparo, entrega e ajustes locais| API
-    API -->|solicita resultado| Gateway
-```
+Atores, lista completa dos casos de uso e a descrição detalhada do caso crítico (Realizar pedido) estão em [CASOS_DE_USO.md](CASOS_DE_USO.md).
 
-Caso de uso principal: o usuário autenticado cria um pedido para uma unidade, o estoque é reservado, o pagamento mock retorna aprovação ou recusa e a API atualiza o pedido. A cozinha conduz o preparo e o atendente registra a entrega.
+## DER
+
+![DER da API Raízes do Nordeste](img/der.png)
+
+Versão vetorial em [img/der.svg](img/der.svg). A imagem é gerada a partir do DER em Mermaid do [MODELO.md](MODELO.md), com o código em [img/der.mmd](img/der.mmd).
 
 ## Classes de domínio
 
