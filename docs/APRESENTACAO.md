@@ -7,188 +7,134 @@ Análise e Desenvolvimento de Sistemas
 Polo São José  
 Semestre 8º
 
+> Nota: elaborado com apoio de IA (Claude Code) e revisado pelo autor.
+
 ---
 
 # 1. O problema do estudo de caso
 
-O sistema precisa atender pedidos de uma rede de alimentação regional.
+Uma rede de restaurantes nordestinos com várias unidades precisa de um back-end que:
 
-O back-end foi pensado para controlar:
-
-- unidades de atendimento;
-- cardápio e estoque;
-- pedidos feitos por canais diferentes;
-- pagamento simulado;
-- preparo e entrega;
-- usuários, permissões e auditoria.
+- receba pedidos por canais diferentes: app, web, retirada, balcão e totem;
+- controle cardápio, preço e estoque de cada unidade;
+- simule o pagamento e acompanhe o preparo e a entrega;
+- tenha perfis de acesso, auditoria e um programa de fidelidade;
+- trate os dados pessoais conforme a LGPD.
 
 ---
 
-# 2. O que foi escolhido
+# 2. A solução
 
-Foi criado um MVP de API REST usando:
+Uma API REST com:
 
-- Python;
-- FastAPI;
-- SQLAlchemy;
-- SQLite;
-- Alembic;
-- JWT para sessão;
-- Argon2 para senha.
+- Python e FastAPI;
+- SQLAlchemy, Alembic e SQLite;
+- JWT para login e Argon2 para senha;
+- pytest e Postman para os testes.
 
-O objetivo foi manter a primeira versão simples, executável e fácil de demonstrar.
+O código está dividido em quatro camadas: domínio (regras), aplicação (casos de uso), infraestrutura (banco e segurança) e API (rotas). As regras de negócio não dependem do framework.
 
 ---
 
 # 3. Como o pedido funciona
 
-1. O cliente acessa uma unidade.
-2. O cardápio é consultado.
-3. O pedido é criado com os itens disponíveis.
-4. O estoque é reservado.
-5. O pagamento simulado é aprovado ou recusado.
-6. O pedido segue para preparo, entrega ou cancelamento.
-7. Cada alteração importante fica registrada na auditoria.
+1. O cliente consulta o cardápio da unidade.
+2. Cria o pedido: o estoque fica reservado por 15 minutos.
+3. O pagamento simulado é aprovado, recusado ou falha (`503`).
+4. Aprovado, a cozinha prepara e o atendente entrega.
+
+Status: `AGUARDANDO_PAGAMENTO` → `CONFIRMADO` → `EM_PREPARO` → `PRONTO` → `ENTREGUE`.
+
+Antes do pagamento, o pedido pode ir para `CANCELADO`, por recusa, por cancelamento do cliente ou por prazo vencido. Nesses casos, a reserva volta ao estoque.
 
 ---
 
 # 4. Perfis e permissões
 
-## Cliente
+| Perfil | O que faz |
+| --- | --- |
+| Cliente | Cria conta, faz e paga os próprios pedidos, cancela antes do pagamento, gerencia consentimentos e pontos. |
+| Atendente | Registra pedidos de balcão e totem e entrega pedidos prontos, só na própria unidade. |
+| Cozinha | Vê só os pedidos pagos da própria unidade e avança o preparo. |
+| Gerente | Faz tudo o que o atendente e a cozinha fazem, movimenta o estoque e consulta a auditoria da unidade. |
 
-Consulta unidades, consulta cardápio e cria os próprios pedidos.
-
-## Atendente
-
-Consulta pedidos e altera pedidos da unidade permitida.
-
-## Cozinha
-
-Consulta pedidos e atualiza as etapas de preparo.
-
-## Gerente
-
-Consulta pedidos, auditoria e dados das unidades sob sua responsabilidade.
-
-As permissões são verificadas no servidor, não apenas na interface.
+As permissões são conferidas no servidor. Pedido de outra pessoa ou de outra unidade responde como inexistente (`404`).
 
 ---
 
-# 5. Modelo do banco
+# 5. Além do fluxo principal
 
-O banco foi organizado em tabelas para:
-
-- usuários;
-- unidades;
-- produtos;
-- produtos por unidade;
-- pedidos;
-- itens do pedido;
-- pagamentos;
-- consentimentos;
-- auditoria.
-
-A primeira migração é executada com Alembic. O arquivo SQLite é criado localmente e não é enviado ao Git.
+- **Cadastro de cliente** com aceite dos termos e senha forte.
+- **Cancelamento** antes do pagamento, com devolução da reserva.
+- **Falha simulada** do provedor de pagamento: `503`, sem perder o pedido.
+- **Entrada e saída de estoque** pelo gerente, com motivo e histórico.
+- **Fidelidade:** 1 ponto por real pago; 100 pontos valem R$ 5,00 de desconto, até 50% do pedido.
+- **Promoções:** regras documentadas como proposta, sem implementação.
 
 ---
 
-# 6. Endpoints principais
+# 6. Modelo do banco
 
-- `POST /auth/login`: autenticação.
-- `GET /unidades`: lista unidades disponíveis.
-- `GET /unidades/{id}/cardapio`: consulta o cardápio.
-- `POST /pedidos`: cria pedido.
-- `GET /pedidos/{id}`: consulta um pedido.
-- `GET /pedidos`: lista pedidos com filtros.
-- `POST /pedidos/{id}/pagamentos/mock`: simula pagamento.
-- `PATCH /pedidos/{id}/status`: altera o status.
-- `GET /auditoria`: consulta o histórico permitido.
+São 11 tabelas, criadas por 3 migrações do Alembic:
 
-O FastAPI também gera a documentação interativa em `/docs`.
+- unidades, usuários, produtos e ofertas por unidade (preço e estoque);
+- pedidos, itens e pagamentos;
+- consentimentos, auditoria, movimentações de estoque e extrato de fidelidade.
+
+Valores em centavos, preço copiado no item na hora da compra e restrições no banco que impedem saldo negativo. O DER está em `docs/img/der.png`.
 
 ---
 
-# 7. Status e regras do pedido
+# 7. Endpoints principais
 
-Os status usados são:
+- `POST /auth/cadastro` e `POST /auth/login`
+- `GET /unidades` e `GET /unidades/{id}/cardapio`
+- `POST /pedidos`, `GET /pedidos` (filtros `canalPedido` e `status`) e `GET /pedidos/{id}`
+- `POST /pedidos/{id}/pagamentos/mock` e `POST /pedidos/{id}/cancelamento`
+- `PATCH /pedidos/{id}/status`
+- `POST` e `GET /unidades/{id}/estoque/movimentacoes`
+- `GET` e `POST /me/consentimentos` e `GET /me/fidelidade`
+- `GET /auditoria`
 
-`CRIADO` → `AGUARDANDO_PAGAMENTO` → `PAGO` → `EM_PREPARO` → `PRONTO` → `EM_ENTREGA` → `ENTREGUE`
-
-Também existem os caminhos de `CANCELADO` e `EXPIRADO`.
-
-Regras implementadas:
-
-- pedido sem pagamento expira em 15 minutos;
-- pagamento recusado cancela o pedido;
-- estoque insuficiente impede a criação;
-- pedido entregue não pode voltar para uma etapa anterior.
+Todo erro sai no mesmo formato: `error`, `message`, `details`, `timestamp` e `path`. A documentação interativa fica em `/docs`.
 
 ---
 
 # 8. Segurança e LGPD
 
-- senha armazenada com hash Argon2;
-- autenticação por token JWT;
-- rotas protegidas por perfil;
-- usuário limitado à própria unidade quando aplicável;
-- registro de consentimento;
-- trilha de auditoria para ações relevantes;
-- dados de teste fictícios.
-
-O pagamento é apenas simulado. Não foram armazenados dados reais de cartão.
+- Senha guardada só como hash Argon2; token JWT expira em 60 minutos.
+- Cadastro com dados mínimos: nome, e-mail e senha. Sem CPF, endereço ou cartão.
+- Consentimentos de fidelidade e marketing separados, opcionais e com histórico.
+- Auditoria das operações sem e-mail, senha ou token.
+- Base legal e retenção de cada dado, direitos do titular e anonimização proposta em `docs/LGPD.md`.
 
 ---
 
-# 9. Testes e demonstração
+# 9. Testes e evidências
 
-Foram criados testes automatizados para:
-
-- login;
-- acesso sem token;
-- criação de pedido;
-- bloqueio de canal inválido;
-- pagamento aprovado;
-- pagamento recusado;
-- filtro de pedidos.
-
-Resultado atual: `7 passed`.
-
-Também foi criada uma coleção Postman com 11 requisições para demonstrar o fluxo.
+- **Testes automatizados (pytest):** regras de domínio, API e migrações, cada teste com banco temporário próprio.
+- **Coleção Postman:** 54 requisições em 7 pastas, com asserções em todas. Executada com o Newman: 131 asserções, nenhuma falha.
+- **Plano de testes:** 12 cenários positivos e 17 negativos, cada um ligado à requisição e ao teste que o comprovam.
+- **Reprodução:** o README foi seguido do zero numa cópia limpa do projeto, com instalação, migração, seed e testes.
 
 ---
 
-# 10. O que já está pronto
+# 10. Uso de IA
 
-- estrutura do projeto;
-- banco e migração inicial;
-- dados fictícios para teste;
-- autenticação;
-- regras de permissão;
-- fluxo de pedidos;
-- pagamento simulado;
-- auditoria;
-- testes automatizados;
-- documentação da API;
-- modelo de relatório acadêmico.
+Parte do código e da documentação foi elaborada com apoio de IA (Claude Code). Cada arquivo nessa situação tem uma nota no topo. O conteúdo foi revisado pelo autor, e as decisões de projeto foram tomadas ou aprovadas por ele. A declaração completa está no relatório.
 
 ---
 
-# 11. O que ainda precisa ser feito
+# 11. O que ainda falta
 
-- executar os testes no ambiente final;
-- revisar os textos com as próprias palavras;
-- inserir as evidências e imagens exigidas pelo roteiro;
-- ajustar a formatação acadêmica;
-- exportar o relatório para PDF;
-- conferir os critérios específicos da instituição antes da entrega.
-
-O professor foi deixado em branco porque o nome ainda não foi localizado.
+- Gerar o PDF acadêmico em ABNT, com as evidências e imagens.
+- Revisar os textos com as próprias palavras.
+- Conferir no AVA as normas, o nome do arquivo e o prazo.
+- Conferir o acesso público ao repositório.
+- Preencher o nome do professor.
 
 ---
 
 # Encerramento
 
-O projeto já possui uma base funcional para demonstrar o back-end.
-
-O próximo trabalho é transformar essa base técnica em documentação acadêmica própria, com evidências da execução e revisão final do roteiro.
-
+O back-end cobre o fluxo completo do pedido, com estoque, pagamento simulado, fidelidade e LGPD, e está testado e documentado. Falta transformar essa base em relatório acadêmico.

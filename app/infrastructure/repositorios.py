@@ -99,7 +99,7 @@ class PedidoRepositorio:
             query = query.where(Pedido.unidade_id == unidade_id)
         return list(self.session.scalars(query))
 
-    def listar(self, *, cliente_id: int | None, unidade_id: int | None, canal: str | None, status: str | None, page: int, limit: int) -> list[Pedido]:
+    def listar(self, *, cliente_id: int | None, unidade_id: int | None, canal: str | None, status: str | None, page: int, limit: int, status_permitidos: frozenset[str] | None = None) -> list[Pedido]:
         """Sempre filtra por um escopo: pedidos do cliente informado ou, sem cliente, da unidade informada."""
         query = select(Pedido).order_by(Pedido.id.desc()).offset((page - 1) * limit).limit(limit)
         if cliente_id is not None:
@@ -110,6 +110,8 @@ class PedidoRepositorio:
             query = query.where(Pedido.canal_pedido == canal)
         if status:
             query = query.where(Pedido.status == status)
+        if status_permitidos is not None:
+            query = query.where(Pedido.status.in_(sorted(status_permitidos)))
         return list(self.session.scalars(query))
 
 

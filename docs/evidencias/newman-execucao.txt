@@ -8,147 +8,147 @@ Raizes do Nordeste - Backend
 
 Folder 01 Autenticação e cadastro
 Sub-folder A01 Health
-  GET http://127.0.0.1:8765/health [200 OK, 140B, 53ms]
+  GET http://127.0.0.1:8765/health [200 OK, 140B, 54ms]
   Pass  Status 200
   Pass  API ativa
 
 Sub-folder A02 Login do cliente
-  POST http://127.0.0.1:8765/auth/login [200 OK, 360B, 95ms]
+  POST http://127.0.0.1:8765/auth/login [200 OK, 360B, 78ms]
   Pass  Status 200
   Pass  Perfil CLIENTE e token Bearer
 
 Sub-folder A03 Login do atendente (Recife)
-  POST http://127.0.0.1:8765/auth/login [200 OK, 365B, 78ms]
+  POST http://127.0.0.1:8765/auth/login [200 OK, 365B, 64ms]
   Pass  Status 200
   Pass  Perfil ATENDENTE e token Bearer
 
 Sub-folder A04 Login da cozinha (Recife)
-  POST http://127.0.0.1:8765/auth/login [200 OK, 360B, 76ms]
+  POST http://127.0.0.1:8765/auth/login [200 OK, 360B, 65ms]
   Pass  Status 200
   Pass  Perfil COZINHA e token Bearer
 
 Sub-folder A05 Login do gerente (Recife)
-  POST http://127.0.0.1:8765/auth/login [200 OK, 360B, 75ms]
+  POST http://127.0.0.1:8765/auth/login [200 OK, 360B, 63ms]
   Pass  Status 200
   Pass  Perfil GERENTE e token Bearer
 
 Sub-folder A06 Login do gerente (Caruaru)
-  POST http://127.0.0.1:8765/auth/login [200 OK, 360B, 78ms]
+  POST http://127.0.0.1:8765/auth/login [200 OK, 360B, 62ms]
   Pass  Status 200
   Pass  Perfil GERENTE e token Bearer
 
 Sub-folder A07 Login com senha errada
-  POST http://127.0.0.1:8765/auth/login [401 Unauthorized, 278B, 77ms]
+  POST http://127.0.0.1:8765/auth/login [401 Unauthorized, 278B, 63ms]
   Pass  Erro no formato padrão (error, message, details, timestamp, path)
   Pass  Status 401
   Pass  Código de erro CREDENCIAIS_INVALIDAS
 
 Sub-folder A08 Cadastro de cliente
-  POST http://127.0.0.1:8765/auth/cadastro [201 Created, 222B, 90ms]
+  POST http://127.0.0.1:8765/auth/cadastro [201 Created, 222B, 73ms]
   Pass  Status 201
   Pass  Conta nasce como CLIENTE e sem senha na resposta
 
 Sub-folder A09 Cadastro com e-mail já usado
-  POST http://127.0.0.1:8765/auth/cadastro [409 Conflict, 285B, 6ms]
+  POST http://127.0.0.1:8765/auth/cadastro [409 Conflict, 285B, 5ms]
   Pass  Erro no formato padrão (error, message, details, timestamp, path)
   Pass  Status 409
   Pass  Código de erro EMAIL_JA_CADASTRADO
 
 Sub-folder A10 Cadastro sem aceitar os termos
-  POST http://127.0.0.1:8765/auth/cadastro [422 Unprocessable Content, 315B, 3ms]
+  POST http://127.0.0.1:8765/auth/cadastro [422 Unprocessable Content, 315B, 4ms]
   Pass  Erro no formato padrão (error, message, details, timestamp, path)
   Pass  Status 422
   Pass  Código de erro TERMOS_NAO_ACEITOS
 
 Folder 02 Catálogo
 Sub-folder C01 Unidades ativas
-  GET http://127.0.0.1:8765/unidades [200 OK, 258B, 9ms]
+  GET http://127.0.0.1:8765/unidades [200 OK, 258B, 6ms]
   Pass  Status 200
   Pass  Duas unidades no seed
 
 Sub-folder C02 Cardápio da unidade Recife
-  GET http://127.0.0.1:8765/unidades/1/cardapio [200 OK, 525B, 15ms]
+  GET http://127.0.0.1:8765/unidades/1/cardapio [200 OK, 525B, 11ms]
   Pass  Status 200
   Pass  Tapioca no cardápio com preço de R$ 18,90
 
 Sub-folder C03 Cardápio de unidade inexistente
-  GET http://127.0.0.1:8765/unidades/999/cardapio [404 Not Found, 284B, 6ms]
+  GET http://127.0.0.1:8765/unidades/999/cardapio [404 Not Found, 284B, 4ms]
   Pass  Erro no formato padrão (error, message, details, timestamp, path)
   Pass  Status 404
   Pass  Código de erro UNIDADE_NAO_ENCONTRADA
 
 Folder 03 Pedido: fluxo principal
 Sub-folder P01 Listar pedidos sem token
-  GET http://127.0.0.1:8765/pedidos [401 Unauthorized, 263B, 4ms]
+  GET http://127.0.0.1:8765/pedidos [401 Unauthorized, 263B, 3ms]
   Pass  Erro no formato padrão (error, message, details, timestamp, path)
   Pass  Status 401
   Pass  Código de erro NAO_AUTENTICADO
 
 Sub-folder P02 Criar pedido (cliente, APP)
-  POST http://127.0.0.1:8765/pedidos [201 Created, 463B, 24ms]
+  POST http://127.0.0.1:8765/pedidos [201 Created, 463B, 23ms]
   Pass  Status 201
   Pass  Aguardando pagamento, com o produto do catálogo
 
 Sub-folder P03 Consultar o pedido criado
-  GET http://127.0.0.1:8765/pedidos/1 [200 OK, 458B, 10ms]
+  GET http://127.0.0.1:8765/pedidos/1 [200 OK, 458B, 11ms]
   Pass  Status 200
   Pass  Mesmo pedido
 
 Sub-folder P04 Pedido com canal inválido
-  POST http://127.0.0.1:8765/pedidos [422 Unprocessable Content, 397B, 7ms]
+  POST http://127.0.0.1:8765/pedidos [422 Unprocessable Content, 397B, 6ms]
   Pass  Erro no formato padrão (error, message, details, timestamp, path)
   Pass  Status 422
   Pass  Código de erro DADOS_INVALIDOS
   Pass  Aponta o campo canal_pedido
 
 Sub-folder P05 Cliente usando canal de balcão
-  POST http://127.0.0.1:8765/pedidos [403 Forbidden, 281B, 5ms]
+  POST http://127.0.0.1:8765/pedidos [403 Forbidden, 281B, 9ms]
   Pass  Erro no formato padrão (error, message, details, timestamp, path)
   Pass  Status 403
   Pass  Código de erro CANAL_NAO_PERMITIDO
 
 Sub-folder P06 Pedido com estoque insuficiente
-  POST http://127.0.0.1:8765/pedidos [409 Conflict, 296B, 7ms]
+  POST http://127.0.0.1:8765/pedidos [409 Conflict, 296B, 12ms]
   Pass  Erro no formato padrão (error, message, details, timestamp, path)
   Pass  Status 409
   Pass  Código de erro ESTOQUE_INSUFICIENTE
 
 Sub-folder P07 Gerente de outra unidade consulta o pedido
-  GET http://127.0.0.1:8765/pedidos/1 [404 Not Found, 270B, 6ms]
+  GET http://127.0.0.1:8765/pedidos/1 [404 Not Found, 270B, 9ms]
   Pass  Erro no formato padrão (error, message, details, timestamp, path)
   Pass  Status 404
   Pass  Código de erro PEDIDO_NAO_ENCONTRADO
 
 Sub-folder P08 Cozinha tenta pagar
-  POST http://127.0.0.1:8765/pedidos/1/pagamentos/mock [403 Forbidden, 299B, 5ms]
+  POST http://127.0.0.1:8765/pedidos/1/pagamentos/mock [403 Forbidden, 299B, 6ms]
   Pass  Erro no formato padrão (error, message, details, timestamp, path)
   Pass  Status 403
   Pass  Código de erro PERFIL_SEM_PERMISSAO
 
 Sub-folder P09 Falha simulada no pagamento
-  POST http://127.0.0.1:8765/pedidos/1/pagamentos/mock [503 Service Unavailable, 361B, 15ms]
+  POST http://127.0.0.1:8765/pedidos/1/pagamentos/mock [503 Service Unavailable, 361B, 14ms]
   Pass  Erro no formato padrão (error, message, details, timestamp, path)
   Pass  Status 503
   Pass  Código de erro PAGAMENTO_INDISPONIVEL
 
 Sub-folder P10 Pagamento aprovado
-  POST http://127.0.0.1:8765/pedidos/1/pagamentos/mock [200 OK, 189B, 23ms]
+  POST http://127.0.0.1:8765/pedidos/1/pagamentos/mock [200 OK, 189B, 21ms]
   Pass  Status 200
   Pass  Pedido confirmado
 
 Sub-folder P11 Trocar o resultado do pagamento
-  POST http://127.0.0.1:8765/pedidos/1/pagamentos/mock [409 Conflict, 298B, 9ms]
+  POST http://127.0.0.1:8765/pedidos/1/pagamentos/mock [409 Conflict, 298B, 13ms]
   Pass  Erro no formato padrão (error, message, details, timestamp, path)
   Pass  Status 409
   Pass  Código de erro PAGAMENTO_IMUTAVEL
 
 Sub-folder P12 Cozinha inicia o preparo
-  PATCH http://127.0.0.1:8765/pedidos/1/status [200 OK, 448B, 12ms]
+  PATCH http://127.0.0.1:8765/pedidos/1/status [200 OK, 448B, 20ms]
   Pass  Status 200
   Pass  Em preparo
 
 Sub-folder P13 Pular etapa (entregar antes de ficar pronto)
-  PATCH http://127.0.0.1:8765/pedidos/1/status [409 Conflict, 287B, 5ms]
+  PATCH http://127.0.0.1:8765/pedidos/1/status [409 Conflict, 287B, 6ms]
   Pass  Erro no formato padrão (error, message, details, timestamp, path)
   Pass  Status 409
   Pass  Código de erro TRANSICAO_INVALIDA
@@ -159,7 +159,7 @@ Sub-folder P14 Cozinha marca como pronto
   Pass  Pronto
 
 Sub-folder P15 Cozinha tenta marcar como entregue
-  PATCH http://127.0.0.1:8765/pedidos/1/status [403 Forbidden, 303B, 5ms]
+  PATCH http://127.0.0.1:8765/pedidos/1/status [403 Forbidden, 303B, 7ms]
   Pass  Erro no formato padrão (error, message, details, timestamp, path)
   Pass  Status 403
   Pass  Código de erro PERFIL_SEM_PERMISSAO
@@ -170,56 +170,56 @@ Sub-folder P16 Atendente entrega o pedido
   Pass  Entregue
 
 Sub-folder P17 Listar com filtros canalPedido e status
-  GET http://127.0.0.1:8765/pedidos?canalPedido=APP&status=ENTREGUE [200 OK, 448B, 9ms]
+  GET http://127.0.0.1:8765/pedidos?canalPedido=APP&status=ENTREGUE [200 OK, 448B, 12ms]
   Pass  Status 200
   Pass  Só pedidos APP entregues
   Pass  Inclui o pedido do fluxo
 
 Sub-folder P18 Filtro com valor desconhecido
-  GET http://127.0.0.1:8765/pedidos?canalPedido=FAX [422 Unprocessable Content, 396B, 5ms]
+  GET http://127.0.0.1:8765/pedidos?canalPedido=FAX [422 Unprocessable Content, 396B, 6ms]
   Pass  Erro no formato padrão (error, message, details, timestamp, path)
   Pass  Status 422
   Pass  Código de erro DADOS_INVALIDOS
 
 Folder 04 Cancelamento
 Sub-folder X01 Criar pedido para cancelar
-  POST http://127.0.0.1:8765/pedidos [201 Created, 463B, 17ms]
+  POST http://127.0.0.1:8765/pedidos [201 Created, 463B, 14ms]
   Pass  Status 201
 
 Sub-folder X02 Cancelar antes do pagamento
-  POST http://127.0.0.1:8765/pedidos/2/cancelamento [200 OK, 455B, 17ms]
+  POST http://127.0.0.1:8765/pedidos/2/cancelamento [200 OK, 455B, 16ms]
   Pass  Status 200
   Pass  Cancelado por solicitação
 
 Sub-folder X03 Cancelar pedido já pago
-  POST http://127.0.0.1:8765/pedidos/1/cancelamento [409 Conflict, 317B, 8ms]
+  POST http://127.0.0.1:8765/pedidos/1/cancelamento [409 Conflict, 317B, 6ms]
   Pass  Erro no formato padrão (error, message, details, timestamp, path)
   Pass  Status 409
   Pass  Código de erro PEDIDO_NAO_CANCELAVEL
 
 Sub-folder X04 Criar pedido para recusar
-  POST http://127.0.0.1:8765/pedidos [201 Created, 463B, 15ms]
+  POST http://127.0.0.1:8765/pedidos [201 Created, 463B, 13ms]
   Pass  Status 201
 
 Sub-folder X05 Pagamento recusado
-  POST http://127.0.0.1:8765/pedidos/3/pagamentos/mock [200 OK, 188B, 15ms]
+  POST http://127.0.0.1:8765/pedidos/3/pagamentos/mock [200 OK, 188B, 13ms]
   Pass  Status 200
   Pass  Pedido cancelado pela recusa
 
 Folder 05 Estoque
 Sub-folder E01 Entrada de estoque (gerente)
-  POST http://127.0.0.1:8765/unidades/1/estoque/movimentacoes [201 Created, 344B, 18ms]
+  POST http://127.0.0.1:8765/unidades/1/estoque/movimentacoes [201 Created, 344B, 15ms]
   Pass  Status 201
   Pass  Saldo livre aumenta 10
 
 Sub-folder E02 Saída maior que o saldo livre
-  POST http://127.0.0.1:8765/unidades/1/estoque/movimentacoes [409 Conflict, 358B, 7ms]
+  POST http://127.0.0.1:8765/unidades/1/estoque/movimentacoes [409 Conflict, 358B, 6ms]
   Pass  Erro no formato padrão (error, message, details, timestamp, path)
   Pass  Status 409
   Pass  Código de erro ESTOQUE_INSUFICIENTE
 
 Sub-folder E03 Atendente tenta ajustar estoque
-  POST http://127.0.0.1:8765/unidades/1/estoque/movimentacoes [403 Forbidden, 304B, 5ms]
+  POST http://127.0.0.1:8765/unidades/1/estoque/movimentacoes [403 Forbidden, 304B, 4ms]
   Pass  Erro no formato padrão (error, message, details, timestamp, path)
   Pass  Status 403
   Pass  Código de erro PERFIL_SEM_PERMISSAO
@@ -231,13 +231,13 @@ Sub-folder E04 Gerente de outra unidade ajusta estoque
   Pass  Código de erro UNIDADE_NAO_PERMITIDA
 
 Sub-folder E05 Histórico de estoque da tapioca
-  GET http://127.0.0.1:8765/unidades/1/estoque/movimentacoes?produtoId=1 [200 OK, 341B, 8ms]
+  GET http://127.0.0.1:8765/unidades/1/estoque/movimentacoes?produtoId=1 [200 OK, 341B, 6ms]
   Pass  Status 200
   Pass  Movimentação mais recente primeiro
 
 Folder 06 Consentimento e fidelidade
 Sub-folder F01 Conceder consentimento de fidelidade
-  POST http://127.0.0.1:8765/me/consentimentos [200 OK, 239B, 14ms]
+  POST http://127.0.0.1:8765/me/consentimentos [200 OK, 239B, 12ms]
   Pass  Status 200
   Pass  Concedido
 
@@ -252,32 +252,32 @@ Sub-folder F03 Pedido de 6 tapiocas
   Pass  Total de R$ 113,40
 
 Sub-folder F04 Pagar e ganhar pontos
-  POST http://127.0.0.1:8765/pedidos/4/pagamentos/mock [200 OK, 189B, 16ms]
+  POST http://127.0.0.1:8765/pedidos/4/pagamentos/mock [200 OK, 189B, 15ms]
   Pass  Status 200
 
 Sub-folder F05 Extrato de fidelidade
-  GET http://127.0.0.1:8765/me/fidelidade [200 OK, 409B, 12ms]
+  GET http://127.0.0.1:8765/me/fidelidade [200 OK, 409B, 8ms]
   Pass  Status 200
   Pass  Crédito de 113 pontos pelo pedido pago
   Pass  Saldo de pelo menos 113
 
 Sub-folder F06 Resgatar 100 pontos no pedido
-  POST http://127.0.0.1:8765/pedidos [201 Created, 467B, 18ms]
+  POST http://127.0.0.1:8765/pedidos [201 Created, 467B, 15ms]
   Pass  Status 201
   Pass  R$ 5,00 de desconto sobre R$ 37,80
 
 Sub-folder F07 Resgate fora de múltiplos de 100
-  POST http://127.0.0.1:8765/pedidos [422 Unprocessable Content, 376B, 5ms]
+  POST http://127.0.0.1:8765/pedidos [422 Unprocessable Content, 376B, 4ms]
   Pass  Erro no formato padrão (error, message, details, timestamp, path)
   Pass  Status 422
   Pass  Código de erro DADOS_INVALIDOS
 
 Sub-folder F08 Cancelar o pedido com resgate
-  POST http://127.0.0.1:8765/pedidos/5/cancelamento [200 OK, 459B, 16ms]
+  POST http://127.0.0.1:8765/pedidos/5/cancelamento [200 OK, 459B, 14ms]
   Pass  Status 200
 
 Sub-folder F09 Extrato após o estorno
-  GET http://127.0.0.1:8765/me/fidelidade [200 OK, 598B, 7ms]
+  GET http://127.0.0.1:8765/me/fidelidade [200 OK, 598B, 6ms]
   Pass  Status 200
   Pass  Pontos devolvidos (ESTORNO de 100)
   Pass  Saldo igual ao de antes do resgate
@@ -302,7 +302,7 @@ Sub-folder U02 Cliente tenta consultar auditoria
   Pass  Código de erro PERFIL_SEM_PERMISSAO
 
 Sub-folder U03 Gerente de Caruaru não vê eventos de Recife
-  GET http://127.0.0.1:8765/auditoria [200 OK, 126B, 6ms]
+  GET http://127.0.0.1:8765/auditoria [200 OK, 126B, 5ms]
   Pass  Status 200
   Pass  Nenhum evento do pedido de Recife
 
@@ -319,9 +319,9 @@ Sub-folder U03 Gerente de Caruaru não vê eventos de Recife
 --------------------------+------------------+-------------------
 |              assertions |              131 |                0 |
 -----------------------------------------------------------------
-| total run duration: 5.7s                                      |
+| total run duration: 4.5s                                      |
 -----------------------------------------------------------------
 | total data received: 13.38kB (approx)                         |
 -----------------------------------------------------------------
-| average response time: 20ms [min: 3ms, max: 95ms, s.d.: 24ms] |
+| average response time: 17ms [min: 3ms, max: 78ms, s.d.: 20ms] |
 -----------------------------------------------------------------

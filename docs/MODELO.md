@@ -1,8 +1,8 @@
-# Modelo inicial do Back-end
+# Modelo do Back-end
 
 > Nota: trechos alterados com apoio de IA (Claude Code) e revisados pelo autor.
 
-Decisões para implementar o fluxo pedido → pagamento mock → preparo → entrega. Este documento define permissões, estados e o DER proposto. Ainda não há banco nem API implementados.
+Decisões do fluxo pedido → pagamento simulado → preparo → entrega: permissões, estados, reserva de estoque e DER. Tudo o que está descrito aqui está implementado na API, exceto o que o texto indica como proposta, evolução ou limitação. A seção 5 aponta o teste que comprova cada regra.
 
 ## 1. Recorte do MVP
 
@@ -25,9 +25,10 @@ Decisões para implementar o fluxo pedido → pagamento mock → preparo → ent
 | Cancelar antes do pagamento | Próprio pedido | Pedido da própria unidade | Não | Pedido da própria unidade |
 | Iniciar preparo e marcar pronto | Não | Não | Na própria unidade | Na própria unidade |
 | Marcar entregue | Não | Na própria unidade | Não | Na própria unidade |
-| Ajustar oferta, preço e estoque local | Não | Não | Não | Na própria unidade, com motivo registrado |
+| Registrar entrada e saída de estoque local | Não | Não | Não | Na própria unidade, com motivo registrado |
+| Ajustar oferta e preço | Não | Não | Não | Evolução: hoje oferta e preço vêm do seed |
 | Consultar auditoria | Não | Não | Não | Da própria unidade |
-| Consultar/alterar consentimentos | Somente próprios | Não | Não | Não |
+| Consultar/alterar consentimentos | Somente próprios | Não altera (a consulta devolve lista vazia) | Não altera | Não altera |
 | Consultar saldo e extrato de pontos; resgatar pontos no pedido | Somente próprios, com consentimento `FIDELIDADE` ativo para resgatar | Não | Não | Não |
 
 Regras de aplicação:
@@ -67,13 +68,13 @@ stateDiagram-v2
 - Cancelamento voluntário só ocorre em `AGUARDANDO_PAGAMENTO`. Cancelamento de pedido pago e estorno ficam fora deste MVP; tentativa retorna `409`.
 - `CANCELADO` e `ENTREGUE` são finais. Não se pulam etapas nem se reabre pedido. Repetir o status atual, após conferir a permissão, devolve o estado existente sem repetir efeitos ou auditoria de alteração.
 - `motivo_cancelamento` recebe `SOLICITADO`, `PAGAMENTO_RECUSADO` ou `PRAZO_EXPIRADO`. É obrigatório quando o pedido é cancelado e nulo nos demais estados.
-- Pagamento tem seus próprios resultados `APROVADO` e `RECUSADO`. Cancelamento manual/expiração pode ocorrer sem registro de pagamento.
+- Pagamento tem seus próprios resultados `APROVADO` e `RECUSADO`. Cancelamento manual e expiração ocorrem sem registro de pagamento. O cancelamento usa a rota própria `POST /pedidos/{id}/cancelamento`, e não a rota de status.
 
 ### Reserva e prazo
 
 Para o protótipo, fica adotado o prazo de **15 minutos** a partir da criação. Esse tempo é uma decisão do projeto, não uma exigência dos PDFs. O servidor grava `expira_em` em UTC; a reserva vence quando o relógio do servidor alcança esse instante, somente se o pedido ainda aguarda pagamento.
 
-A liberação será feita por uma única função da camada de aplicação, antes de ler ou alterar pedidos, cardápio e estoque da unidade. Ela cancela os pedidos vencidos, devolve suas reservas e grava auditoria na mesma transação. Assim, não é necessário um processo agendado. Se a API estiver parada, a atualização física ocorrerá na próxima operação; um pagamento após o vencimento será recusado com `409`.
+A liberação é feita por uma única função da camada de aplicação (`expirar_pedidos`), chamada antes de criar, consultar, listar, pagar ou cancelar pedidos, de mostrar o cardápio e de movimentar o estoque da unidade. Ela cancela os pedidos vencidos com motivo `PRAZO_EXPIRADO`, devolve as reservas, estorna pontos resgatados e grava `PEDIDO_EXPIRADO` na auditoria. Assim, não é necessário um processo agendado. Se a API estiver parada, a atualização acontece na próxima operação, e um pagamento após o vencimento é recusado com `409`.
 
 | Operação, para quantidade Q | saldo_livre | saldo_reservado |
 | --- | --- | --- |
@@ -85,9 +86,11 @@ O saldo físico antes do consumo é `saldo_livre + saldo_reservado`. Ajustes do 
 
 ### Transações e repetição
 
-Criação, pagamento, cancelamento e expiração serão operações de banco atômicas: pedido, itens, estoque, pagamento e auditoria envolvidos são confirmados juntos ou desfeitos juntos. A reserva exige saldo suficiente para todos os itens. A implementação deve impedir que duas operações consumam o mesmo saldo; erro de gravação nunca deve deixar uma atualização parcial.
+Criação, pagamento, cancelamento e expiração são operações de banco atômicas: pedido, itens, estoque, pagamento, pontos e auditoria envolvidos são confirmados juntos no fim da operação ou desfeitos juntos. A reserva exige saldo suficiente para todos os itens, e as restrições `CHECK` do banco impedem saldo negativo.
 
-O simulador recebe um cenário de teste de aprovação ou recusa e retorna um resultado local, sem chamada a provedor real. Há uma restrição `UNIQUE(pedido_id)` em `pagamento`. Repetir a mesma simulação retorna o pagamento já registrado; tentar trocar o resultado retorna `409`. A permissão é conferida mesmo na repetição. Não há segunda tentativa em pedido recusado; cria-se um novo pedido. Uma falha técnica simulada retorna `503`, mantém o pedido aguardando e não grava pagamento; a reserva continua sujeita ao prazo.
+**Limitação conhecida:** a reserva lê o saldo e depois grava o novo valor, sem bloquear a linha. Duas requisições realmente simultâneas disputando o último item não foram testadas. Para produção, a proposta é uma atualização condicional (`UPDATE ... SET saldo_livre = saldo_livre - Q WHERE saldo_livre >= Q`, conferindo quantas linhas foram alteradas) ou o bloqueio da linha (`SELECT ... FOR UPDATE`) num banco servidor.
+
+O simulador recebe um cenário (`APROVADO`, `RECUSADO` ou `FALHA`) e retorna um resultado local, sem chamada a provedor real. Há uma restrição `UNIQUE(pedido_id)` em `pagamento`. Repetir a mesma simulação retorna o pagamento já registrado; tentar trocar o resultado retorna `409`. A permissão é conferida mesmo na repetição. Não há segunda tentativa em pedido recusado; cria-se um novo pedido. O cenário `FALHA` simula o provedor fora do ar: retorna `503`, mantém o pedido aguardando, não grava pagamento e registra `PAGAMENTO_FALHA` na auditoria; a reserva continua sujeita ao prazo e o pedido pode ser pago depois.
 
 ## 4. DER
 
@@ -232,21 +235,24 @@ Na relação da equipe, cada funcionário possui exatamente uma unidade; um clie
 | consentimento_evento | Finalidade FIDELIDADE ou MARKETING; versão do termo e data obrigatórias. Sem evento, não há consentimento. A opção atual é o evento mais recente por finalidade, ordenado por data e ID. Concessão e revogação acrescentam eventos; não sobrescrevem o histórico. |
 | fidelidade_movimento | Tipo `CREDITO`, `DEBITO` ou `ESTORNO`; pontos inteiros positivos; sempre ligado a um pedido. Saldo = créditos + estornos − débitos, nunca negativo (o resgate confere o saldo). Crédito só com consentimento ativo no pagamento; estorno só para pedido com pontos resgatados que foi cancelado. Registros não são editados nem apagados. |
 | movimentacao_estoque | Tipo `ENTRADA` ou `SAIDA`; quantidade inteira positiva; motivo obrigatório (3 a 200 caracteres); saldos anterior e novo não negativos. Altera só o saldo livre da oferta: a saída nunca passa do saldo livre e nunca retira itens reservados. Registros não são editados nem apagados. |
-| auditoria | Registrar criação, pagamento, mudanças de status, cancelamento, expiração, ajuste de estoque/preço e alterações/consultas de consentimento. Incluir valores anteriores/novos necessários, sem senha, token, e-mail ou conteúdo completo de requests. |
+| auditoria | Registra criação de pedido, pagamento (inclusive a falha simulada), mudanças de status, cancelamento, expiração, movimentação de estoque, cadastro de cliente e alterações de consentimento. Guarda os valores anteriores e novos necessários, sem senha, token, e-mail ou conteúdo completo de requests. |
 
 `tipo_entidade` e `entidade_id` identificam o objeto na auditoria, mas não formam uma FK polimórfica: a aplicação valida o alvo ao gravar. Auditoria não tem edição/exclusão por API. Eventos de expiração usam usuário nulo e a unidade do pedido; eventos de consentimento usam a pessoa autenticada e unidade nula. Gerentes não consultam eventos pessoais sem unidade. Cadastro/equipe e permissão são conferidos novamente nas operações; possuir um ID válido não basta.
 
-## 5. Casos que a implementação deverá comprovar
+## 5. Casos comprovados
 
-1. Cliente não consulta nem paga pedido de outra pessoa; funcionário não opera outra unidade, inclusive com IDs enviados manualmente.
-2. Cozinha não paga/cancela pedido; atendente não altera preço nem marca preparo/pronto; gerente atua apenas na própria unidade.
-3. Pedido sem canal ou com canal inválido retorna `422`; canal válido não permitido ao perfil retorna `403`.
-4. Oferta de outra unidade, quantidade inválida, produto inexistente e falta de estoque são rejeitados sem gravação parcial.
-5. Duas criações disputando a última unidade não geram saldo negativo nem dois pedidos aceitos para o mesmo item disponível.
-6. Aprovação, recusa, cancelamento e expiração movimentam a reserva uma única vez, inclusive com repetição e disputa simultânea.
-7. Pedido vencido não pode ser pago. A próxima consulta/operação libera a reserva e registra motivo e auditoria.
-8. Não se pula de confirmado para entregue, nem se altera pedido finalizado; pedidos pagos não são cancelados neste recorte.
-9. Alterar preço/nome do catálogo não muda os valores e a identificação do item já comprado.
-10. Cliente compra sem consentimento; aceitar/revogar uma finalidade não altera a outra e mantém histórico.
+Cada caso abaixo é verificado por testes automatizados (`python -m pytest`). O [plano de testes](PLANO_DE_TESTES.md) traz também os cenários da coleção Postman.
 
-Esses casos serão incorporados à coleção e aos testes da API. Aqui estão definidos, ainda não executados. A próxima etapa é criar os modelos, a primeira migração e o seed conforme este documento.
+| # | Caso | Testes |
+| --- | --- | --- |
+| 1 | Cliente não consulta nem paga pedido de outra pessoa; funcionário não opera outra unidade; IDs e perfis enviados no corpo não concedem acesso. | `test_client_cannot_see_or_pay_another_clients_order`, `test_staff_cancels_only_orders_of_own_unit`, `test_only_manager_of_the_unit_moves_stock`, `test_signup_ignores_profile_and_unit_sent_in_body`, `test_acesso_ao_pedido` |
+| 2 | Cozinha não paga nem cancela pedido; atendente não inicia preparo; gerente atua só na própria unidade. | `test_kitchen_cannot_pay_order`, `test_kitchen_cannot_cancel_order`, `test_mudanca_de_status`, `test_only_manager_of_the_unit_moves_stock` |
+| 3 | Pedido com canal inválido retorna `422`; canal válido não permitido ao perfil retorna `403`. | `test_invalid_channel_and_invalid_quantity`, `test_client_cannot_create_balcao_order` |
+| 4 | Produto sem oferta na unidade, produto desativado, quantidade inválida e falta de estoque são rejeitados sem gravação parcial. | `test_product_without_offer_in_the_unit_is_unavailable`, `test_inactive_product_is_unavailable`, `test_invalid_channel_and_invalid_quantity`, `test_order_beyond_stock_is_rejected_without_reserving` |
+| 5 | Duas criações simultâneas disputando a última unidade. | **Não comprovado.** Ver a limitação conhecida na seção 3. |
+| 6 | Aprovação, recusa, cancelamento e expiração movimentam a reserva uma única vez, inclusive com repetição. | `test_create_order_and_reject_payment`, `test_client_cancels_own_pending_order`, `test_repeating_cancel_is_idempotent`, `test_payment_result_cannot_be_changed`, `test_expired_order_cannot_be_paid` |
+| 7 | Pedido vencido não pode ser pago; a próxima consulta ou operação libera a reserva e registra motivo e auditoria. | `test_expired_order_cannot_be_paid`, `test_menu_releases_expired_reservations` |
+| 8 | Não se pula etapa nem se altera pedido finalizado; pedidos pagos não são cancelados. | `test_skipping_a_step_is_conflict`, `test_status_route_cannot_confirm_or_cancel`, `test_mudanca_de_status`, `test_paid_order_cannot_be_cancelled` |
+| 9 | Alterar preço ou nome no catálogo não muda os valores nem a identificação do item já comprado. | `test_catalog_change_does_not_alter_existing_order` |
+| 10 | Cliente compra sem consentimento; cada finalidade é independente e o histórico é mantido. | `test_purchase_without_consent_earns_no_points`, `test_signup_records_only_the_consents_given`, `test_revoked_consent_freezes_points`, `test_client_consent_and_manager_audit` |
+| 11 | A cozinha só enxerga pedidos pagos da própria unidade. | `test_kitchen_only_sees_paid_orders`, `test_cozinha_so_ve_pedidos_pagos_da_propria_unidade` |

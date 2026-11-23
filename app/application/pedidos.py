@@ -10,7 +10,7 @@ from app.application import fidelidade
 
 from app.domain.enums import CanalPedido, CenarioPagamento, MotivoCancelamento, Perfil, ResultadoPagamento, StatusPedido
 from app.domain.errors import Conflito, DadosInvalidos, NaoEncontrado, ServicoIndisponivel
-from app.domain.regras import PRAZO_RESERVA, exigir_acesso_ao_pedido, exigir_pode_cancelar, exigir_pode_criar_pedido, exigir_pode_pagar, precisa_cancelar, validar_mudanca_status
+from app.domain.regras import PRAZO_RESERVA, STATUS_VISIVEIS_PELA_COZINHA, exigir_acesso_ao_pedido, exigir_pode_cancelar, exigir_pode_criar_pedido, exigir_pode_pagar, precisa_cancelar, validar_mudanca_status
 from app.infrastructure.models import ItemPedido, Pagamento, Pedido, Usuario
 from app.infrastructure.repositorios import AuditoriaRepositorio, CatalogoRepositorio, OfertaRepositorio, PagamentoRepositorio, PedidoRepositorio
 
@@ -78,7 +78,7 @@ def _pedido_acessivel(session: Session, usuario: Usuario, pedido_id: int) -> Ped
     pedido = PedidoRepositorio(session).obter(pedido_id)
     if not pedido:
         raise NaoEncontrado("PEDIDO_NAO_ENCONTRADO", "Pedido não encontrado.")
-    exigir_acesso_ao_pedido(usuario.perfil, usuario.id, usuario.unidade_id, pedido.cliente_id, pedido.unidade_id)
+    exigir_acesso_ao_pedido(usuario.perfil, usuario.id, usuario.unidade_id, pedido.cliente_id, pedido.unidade_id, pedido.status)
     return pedido
 
 
@@ -175,6 +175,7 @@ def listar_pedidos(session: Session, usuario: Usuario, canal: CanalPedido | None
         unidade_id=usuario.unidade_id,
         canal=canal.value if canal else None,
         status=status.value if status else None,
+        status_permitidos=STATUS_VISIVEIS_PELA_COZINHA if usuario.perfil == Perfil.COZINHA else None,
         page=page,
         limit=limit,
     )

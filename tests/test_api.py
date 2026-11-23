@@ -682,3 +682,42 @@ def test_payment_result_cannot_be_changed(client: TestClient):
     order_id = create_paid_order(client)
     response = client.post(f"/pedidos/{order_id}/pagamentos/mock", headers=auth(client, CLIENTE), json={"resultado": "RECUSADO"})
     assert_error(response, 409, "PAGAMENTO_IMUTAVEL", f"/pedidos/{order_id}/pagamentos/mock")
+
+
+
+# --- Casos da seção 5 do MODELO.md ---------------------------------------------
+
+
+def test_kitchen_only_sees_paid_orders(client: TestClient):
+    client_headers = auth(client, CLIENTE)
+    waiting_id = create_order(client, client_headers)["id"]
+    paid_id = create_paid_order(client)
+    kitchen_headers = auth(client, COZINHA_RECIFE)
+    assert [order["id"] for order in client.get("/pedidos", headers=kitchen_headers).json()] == [paid_id]
+    assert_error(client.get(f"/pedidos/{waiting_id}", headers=kitchen_headers), 404, "PEDIDO_NAO_ENCONTRADO", f"/pedidos/{waiting_id}")
+    assert client.get(f"/pedidos/{paid_id}", headers=kitchen_headers).status_code == 200
+
+
+def test_client_cannot_see_or_pay_another_clients_order(client: TestClient):
+    order_id = create_order(client, auth(client, CLIENTE))["id"]
+    assert client.post("/auth/cadastro", json={"nome": "Outra Cliente", "email": "outra@exemplo.com", "senha": "Segura123", "aceite_termos": True}).status_code == 201
+    other = auth(client, ("outra@exemplo.com", "Segura123"))
+    assert_error(client.get(f"/pedidos/{order_id}", headers=other), 404, "PEDIDO_NAO_ENCONTRADO", f"/pedidos/{order_id}")
+    assert_error(client.post(f"/pedidos/{order_id}/pagamentos/mock", headers=other, json={"resultado": "APROVADO"}), 404, "PEDIDO_NAO_ENCONTRADO", f"/pedidos/{order_id}/pagamentos/mock")
+    assert client.get("/pedidos", headers=other).json() == []
+
+
+def test_product_without_offer_in_the_unit_is_unavailable(client: TestClient):
+    response = client.post("/pedidos", headers=auth(client, CLIENTE), json=order_payload(unidade_id=2, produto_id=2))
+    assert_error(response, 404, "PRODUTO_INDISPONIVEL", "/pedidos")
+
+
+def test_catalog_change_does_not_alter_existing_order(client: TestClient, session_factory: sessionmaker):
+    headers = auth(client, CLIENTE)
+    order_id = create_order(client, headers)["id"]
+    with session_factory() as session:
+        session.execute(update(ProdutoUnidade).where(ProdutoUnidade.id == 1).values(preco_centavos=2500))
+        session.execute(update(Produto).where(Produto.id == 1).values(nome="Tapioca renomeada"))
+        session.commit()
+    order = client.get(f"/pedidos/{order_id}", headers=headers).json()
+    assert (order["total_centavos"], order["itens"][0]["preco_unitario_centavos"], order["itens"][0]["nome"]) == (1890, 1890, "Tapioca de Carne de Sol")

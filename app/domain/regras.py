@@ -19,6 +19,8 @@ CANAIS_CLIENTE = frozenset({CanalPedido.APP, CanalPedido.WEB, CanalPedido.PICKUP
 CANAIS_EQUIPE = frozenset({CanalPedido.BALCAO, CanalPedido.TOTEM, CanalPedido.PICKUP})
 PERFIS_QUE_PAGAM = frozenset({Perfil.CLIENTE, Perfil.ATENDENTE, Perfil.GERENTE})
 PERFIS_QUE_CANCELAM = frozenset({Perfil.CLIENTE, Perfil.ATENDENTE, Perfil.GERENTE})
+# A cozinha só precisa dos pedidos pagos: os que aguardam pagamento ou foram cancelados não chegam a ela.
+STATUS_VISIVEIS_PELA_COZINHA = frozenset({StatusPedido.CONFIRMADO, StatusPedido.EM_PREPARO, StatusPedido.PRONTO, StatusPedido.ENTREGUE})
 
 # Transições manuais, por status de destino: (status de origem exigido, perfis autorizados).
 TRANSICOES = {
@@ -61,12 +63,17 @@ def precisa_cancelar(status_atual: str) -> bool:
     raise Conflito("PEDIDO_NAO_CANCELAVEL", "Somente pedidos aguardando pagamento podem ser cancelados.")
 
 
-def exigir_acesso_ao_pedido(perfil: str, usuario_id: int, unidade_usuario: int | None, pedido_cliente_id: int | None, pedido_unidade_id: int) -> None:
-    """Cliente só vê os próprios pedidos; funcionário só vê os da própria unidade. Fora disso, o pedido "não existe"."""
+def exigir_acesso_ao_pedido(perfil: str, usuario_id: int, unidade_usuario: int | None, pedido_cliente_id: int | None, pedido_unidade_id: int, pedido_status: str | None = None) -> None:
+    """Cliente só vê os próprios pedidos; funcionário só vê os da própria unidade, e a cozinha só os já pagos.
+
+    Fora disso, o pedido "não existe" para quem pergunta (404), para não revelar pedidos de outras pessoas ou unidades.
+    """
     if perfil == Perfil.CLIENTE:
         permitido = pedido_cliente_id == usuario_id
     else:
         permitido = pedido_unidade_id == unidade_usuario
+        if perfil == Perfil.COZINHA and pedido_status not in STATUS_VISIVEIS_PELA_COZINHA:
+            permitido = False
     if not permitido:
         raise NaoEncontrado("PEDIDO_NAO_ENCONTRADO", "Pedido não encontrado.")
 

@@ -62,6 +62,19 @@ def test_acesso_ao_pedido():
 
 
 @pytest.mark.parametrize(
+    ("status", "visivel"),
+    [("AGUARDANDO_PAGAMENTO", False), ("CANCELADO", False), ("CONFIRMADO", True), ("EM_PREPARO", True), ("PRONTO", True), ("ENTREGUE", True)],
+)
+def test_cozinha_so_ve_pedidos_pagos_da_propria_unidade(status, visivel):
+    acesso = dict(usuario_id=3, unidade_usuario=1, pedido_cliente_id=1, pedido_unidade_id=1, pedido_status=status)
+    if visivel:
+        assert exigir_acesso_ao_pedido(Perfil.COZINHA, **acesso) is None
+        return
+    with pytest.raises(NaoEncontrado):
+        exigir_acesso_ao_pedido(Perfil.COZINHA, **acesso)
+
+
+@pytest.mark.parametrize(
     ("perfil", "atual", "destino", "esperado"),
     [
         (Perfil.COZINHA, "CONFIRMADO", StatusPedido.EM_PREPARO, True),
@@ -71,6 +84,8 @@ def test_acesso_ao_pedido():
         (Perfil.CLIENTE, "CONFIRMADO", StatusPedido.EM_PREPARO, "PERFIL_SEM_PERMISSAO"),
         (Perfil.GERENTE, "CONFIRMADO", StatusPedido.PRONTO, "TRANSICAO_INVALIDA"),
         (Perfil.GERENTE, "AGUARDANDO_PAGAMENTO", StatusPedido.CONFIRMADO, "TRANSICAO_INVALIDA"),
+        (Perfil.ATENDENTE, "CONFIRMADO", StatusPedido.EM_PREPARO, "PERFIL_SEM_PERMISSAO"),
+        (Perfil.COZINHA, "ENTREGUE", StatusPedido.EM_PREPARO, "TRANSICAO_INVALIDA"),
     ],
 )
 def test_mudanca_de_status(perfil, atual, destino, esperado):

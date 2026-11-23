@@ -1,7 +1,7 @@
-# Execução do pytest em 23/11/2026 17:33 - Python 3.14.6
+# Execução do pytest em 23/11/2026 17:59 - Python 3.14.6
 # Comando: python -m pytest -v -W error
 ============================= test session starts =============================
-collecting ... collected 110 items
+collecting ... collected 122 items
 
 tests/test_api.py::test_health_and_public_catalog PASSED
 tests/test_api.py::test_login_and_missing_token PASSED
@@ -69,6 +69,10 @@ tests/test_api.py::test_loyalty_statement_is_only_for_clients PASSED
 tests/test_api.py::test_login_with_wrong_password_is_rejected PASSED
 tests/test_api.py::test_order_beyond_stock_is_rejected_without_reserving PASSED
 tests/test_api.py::test_payment_result_cannot_be_changed PASSED
+tests/test_api.py::test_kitchen_only_sees_paid_orders PASSED
+tests/test_api.py::test_client_cannot_see_or_pay_another_clients_order PASSED
+tests/test_api.py::test_product_without_offer_in_the_unit_is_unavailable PASSED
+tests/test_api.py::test_catalog_change_does_not_alter_existing_order PASSED
 tests/test_migracoes.py::test_migracoes_geram_o_esquema_dos_modelos PASSED
 tests/test_migracoes.py::test_alembic_usa_o_database_url_do_ambiente PASSED
 tests/test_regras.py::test_cliente_so_usa_canais_de_cliente PASSED
@@ -76,6 +80,12 @@ tests/test_regras.py::test_cozinha_nao_cria_pedido PASSED
 tests/test_regras.py::test_funcionario_so_cria_na_propria_unidade PASSED
 tests/test_regras.py::test_cozinha_nao_paga PASSED
 tests/test_regras.py::test_acesso_ao_pedido PASSED
+tests/test_regras.py::test_cozinha_so_ve_pedidos_pagos_da_propria_unidade[AGUARDANDO_PAGAMENTO-False] PASSED
+tests/test_regras.py::test_cozinha_so_ve_pedidos_pagos_da_propria_unidade[CANCELADO-False] PASSED
+tests/test_regras.py::test_cozinha_so_ve_pedidos_pagos_da_propria_unidade[CONFIRMADO-True] PASSED
+tests/test_regras.py::test_cozinha_so_ve_pedidos_pagos_da_propria_unidade[EM_PREPARO-True] PASSED
+tests/test_regras.py::test_cozinha_so_ve_pedidos_pagos_da_propria_unidade[PRONTO-True] PASSED
+tests/test_regras.py::test_cozinha_so_ve_pedidos_pagos_da_propria_unidade[ENTREGUE-True] PASSED
 tests/test_regras.py::test_mudanca_de_status[COZINHA-CONFIRMADO-EM_PREPARO-True] PASSED
 tests/test_regras.py::test_mudanca_de_status[COZINHA-EM_PREPARO-EM_PREPARO-False] PASSED
 tests/test_regras.py::test_mudanca_de_status[ATENDENTE-PRONTO-ENTREGUE-True] PASSED
@@ -83,6 +93,8 @@ tests/test_regras.py::test_mudanca_de_status[COZINHA-PRONTO-ENTREGUE-PERFIL_SEM_
 tests/test_regras.py::test_mudanca_de_status[CLIENTE-CONFIRMADO-EM_PREPARO-PERFIL_SEM_PERMISSAO] PASSED
 tests/test_regras.py::test_mudanca_de_status[GERENTE-CONFIRMADO-PRONTO-TRANSICAO_INVALIDA] PASSED
 tests/test_regras.py::test_mudanca_de_status[GERENTE-AGUARDANDO_PAGAMENTO-CONFIRMADO-TRANSICAO_INVALIDA] PASSED
+tests/test_regras.py::test_mudanca_de_status[ATENDENTE-CONFIRMADO-EM_PREPARO-PERFIL_SEM_PERMISSAO] PASSED
+tests/test_regras.py::test_mudanca_de_status[COZINHA-ENTREGUE-EM_PREPARO-TRANSICAO_INVALIDA] PASSED
 tests/test_regras.py::test_dominio_nao_depende_de_frameworks PASSED
 tests/test_regras.py::test_cozinha_nao_cancela_pedido PASSED
 tests/test_regras.py::test_so_cancela_pedido_aguardando_pagamento[AGUARDANDO_PAGAMENTO-True] PASSED
@@ -114,4 +126,4 @@ tests/test_regras.py::test_resgate_de_100_pontos_vale_5_reais_ate_metade_do_pedi
 tests/test_regras.py::test_resgate_de_100_pontos_vale_5_reais_ate_metade_do_pedido[0-500-5000-RESGATE_INVALIDO] PASSED
 tests/test_regras.py::test_so_cliente_com_consentimento_ativo_resgata PASSED
 
-============================ 110 passed in 11.93s =============================
+============================ 122 passed in 11.36s =============================

@@ -167,7 +167,7 @@ Erros: `401`, `404` quando não pertence ao escopo do usuário.
 
 ### GET `/pedidos`
 
-Lista pedidos do cliente autenticado ou da unidade do funcionário autenticado. Query params:
+Lista pedidos do cliente autenticado ou da unidade do funcionário autenticado. A cozinha só vê pedidos já pagos (`CONFIRMADO`, `EM_PREPARO`, `PRONTO` e `ENTREGUE`); um pedido fora disso responde `404` também em `GET /pedidos/{pedido_id}`. Query params:
 
 - `canalPedido`: `APP`, `WEB`, `PICKUP`, `BALCAO` ou `TOTEM`.
 - `status`: `AGUARDANDO_PAGAMENTO`, `CONFIRMADO`, `EM_PREPARO`, `PRONTO`, `ENTREGUE` ou `CANCELADO`.
