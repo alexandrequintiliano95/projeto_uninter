@@ -20,7 +20,7 @@ Todos os erros (regra de negócio, validação, rota inexistente e falha interna
 
 - `details` é uma lista. Fica vazia em erros de regra de negócio e traz um item por campo em erros de validação (`422`).
 - `timestamp` está em UTC (ISO 8601) e `path` é o caminho chamado.
-- Códigos genéricos: `DADOS_INVALIDOS` (`422`), `RECURSO_NAO_ENCONTRADO` (`404` de rota), `METODO_NAO_PERMITIDO` (`405`) e `ERRO_INTERNO` (`500`, sem expor detalhes internos). Os demais códigos estão descritos em cada endpoint.
+- Códigos genéricos: `DADOS_INVALIDOS` (`422`), `RECURSO_NAO_ENCONTRADO` (`404` de rota), `METODO_NAO_PERMITIDO` (`405`), `ERRO_INTERNO` (`500`, sem expor detalhes internos) e `PAGAMENTO_INDISPONIVEL` (`503`, falha simulada do provedor de pagamento). Os demais códigos estão descritos em cada endpoint.
 
 ## Endpoints públicos
 
@@ -142,19 +142,35 @@ Erros: `401` e `422` para filtro com valor desconhecido ou paginação inválida
 
 ### POST `/pedidos/{pedido_id}/pagamentos/mock`
 
-Registra o resultado simulado do pagamento. Body:
+Simula o provedor de pagamento. Body:
 
 ```json
 {"resultado":"APROVADO"}
 ```
 
-`APROVADO` muda o pedido para `CONFIRMADO` e consome a reserva. `RECUSADO` muda o pedido para `CANCELADO` e devolve a reserva. Uma segunda chamada com resultado diferente retorna `409`.
+| `resultado` | Efeito |
+| --- | --- |
+| `APROVADO` | Grava o pagamento, muda o pedido para `CONFIRMADO` e consome a reserva. |
+| `RECUSADO` | Grava o pagamento, muda o pedido para `CANCELADO` (`PAGAMENTO_RECUSADO`) e devolve a reserva. |
+| `FALHA` | Simula o provedor fora do ar: responde `503` (`PAGAMENTO_INDISPONIVEL`), não grava pagamento e registra `PAGAMENTO_FALHA` na auditoria. O pedido continua `AGUARDANDO_PAGAMENTO`, com a reserva sujeita ao prazo, e pode ser pago depois. |
+
+Repetir o mesmo resultado devolve o pagamento já gravado. Uma chamada com resultado diferente do gravado retorna `409` (`PAGAMENTO_IMUTAVEL`).
 
 Cliente, atendente e gerente podem registrar o pagamento. A cozinha recebe `403`, inclusive ao repetir um pagamento já registrado.
 
 Um pedido com prazo de reserva vencido é cancelado (`PRAZO_EXPIRADO`) e o pagamento é recusado com `409` (`PEDIDO_SEM_PAGAMENTO`).
 
-Erros: `401`, `403` para perfil sem permissão, `404`, `409` para pedido fora do estado de pagamento (inclusive vencido) ou resultado imutável e `422` (`DADOS_INVALIDOS`) para `resultado` diferente de `APROVADO` ou `RECUSADO`.
+Erros: `401`, `403` para perfil sem permissão, `404`, `409` para pedido fora do estado de pagamento (inclusive vencido ou cancelado) ou resultado imutável, `422` (`DADOS_INVALIDOS`) para `resultado` fora de `APROVADO`, `RECUSADO` ou `FALHA` e `503` (`PAGAMENTO_INDISPONIVEL`) para a falha simulada.
+
+### POST `/pedidos/{pedido_id}/cancelamento`
+
+Cancela o pedido antes do pagamento, sem body. O pedido passa a `CANCELADO` com `motivo_cancelamento` igual a `SOLICITADO`, a reserva volta ao saldo livre e a auditoria registra `PEDIDO_CANCELADO`. A resposta `200` traz o pedido atualizado.
+
+- Cliente cancela os próprios pedidos. Atendente e gerente cancelam pedidos da própria unidade. A cozinha recebe `403`.
+- Repetir o cancelamento devolve `200` com o pedido como está, sem devolver a reserva de novo nem gravar outra auditoria. Isso vale também para pedido cancelado por recusa ou por prazo vencido.
+- Pedido já pago (`CONFIRMADO` em diante) não pode ser cancelado neste protótipo, porque não há estorno: retorna `409` (`PEDIDO_NAO_CANCELAVEL`).
+
+Erros: `401`, `403` (`PERFIL_SEM_PERMISSAO`), `404` para pedido fora do escopo e `409` (`PEDIDO_NAO_CANCELAVEL`).
 
 ### PATCH `/pedidos/{pedido_id}/status`
 
@@ -170,7 +186,7 @@ Avança o pedido para a próxima etapa do preparo ou da entrega. O body informa 
 | `PRONTO` | `EM_PREPARO` | Cozinha ou gerente |
 | `ENTREGUE` | `PRONTO` | Atendente ou gerente |
 
-Repetir o status em que o pedido já está devolve `200` com o pedido como está, sem gravar nova auditoria. `CONFIRMADO` e `CANCELADO` não são aceitos nesta rota: dependem do pagamento, do cancelamento ou da expiração.
+Repetir o status em que o pedido já está devolve `200` com o pedido como está, sem gravar nova auditoria. `CONFIRMADO` e `CANCELADO` não são aceitos nesta rota: dependem do pagamento, do cancelamento (`POST /pedidos/{pedido_id}/cancelamento`) ou da expiração.
 
 Erros: `403` (`PERFIL_SEM_PERMISSAO`) quando o perfil não pode fazer aquela transição, como cliente alterando status ou cozinha marcando entregue; `404` para pedido fora do escopo; `409` (`TRANSICAO_INVALIDA`) quando o pedido não está no status exigido ou o destino não é aceito nesta rota; `422` para status desconhecido.
 

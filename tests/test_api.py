@@ -14,6 +14,7 @@ CLIENTE = ("cliente@raizes.local", "Cliente@123")
 ATENDENTE_RECIFE = ("atendente.recife@raizes.local", "Atendente@123")
 COZINHA_RECIFE = ("cozinha.recife@raizes.local", "Cozinha@123")
 GERENTE_RECIFE = ("gerente.recife@raizes.local", "Gerente@123")
+GERENTE_CARUARU = ("gerente.caruaru@raizes.local", "Gerente@123")
 
 
 def auth(client: TestClient, credentials: tuple[str, str]) -> dict[str, str]:
@@ -337,3 +338,89 @@ def test_inactive_product_is_unavailable(client: TestClient, session_factory: se
         session.commit()
     response = client.post("/pedidos", headers=auth(client, CLIENTE), json={"unidade_id": 1, "canal_pedido": "APP", "itens": [{"produto_id": 2, "quantidade": 1}]})
     assert_error(response, 404, "PRODUTO_INDISPONIVEL", "/pedidos")
+
+
+# --- Cancelamento antes do pagamento ------------------------------------------
+
+
+def free_stock(client: TestClient, unidade_id: int, produto_id: int) -> int:
+    return next(item["saldo_disponivel"] for item in client.get(f"/unidades/{unidade_id}/cardapio").json() if item["produto_id"] == produto_id)
+
+
+def audited_actions(client: TestClient, order_id: int) -> list[str]:
+    audit = client.get("/auditoria", headers=auth(client, GERENTE_RECIFE)).json()
+    return [event["acao"] for event in audit if event["tipo_entidade"] == "PEDIDO" and event["entidade_id"] == order_id]
+
+
+def test_client_cancels_own_pending_order(client: TestClient):
+    headers = auth(client, CLIENTE)
+    order_id = create_order(client, headers)["id"]
+    assert free_stock(client, 1, 1) == 19
+    response = client.post(f"/pedidos/{order_id}/cancelamento", headers=headers)
+    assert response.status_code == 200, response.text
+    assert (response.json()["status"], response.json()["motivo_cancelamento"]) == ("CANCELADO", "SOLICITADO")
+    assert free_stock(client, 1, 1) == 20
+    assert audited_actions(client, order_id) == ["PEDIDO_CANCELADO", "PEDIDO_CRIADO"]
+
+
+def test_repeating_cancel_is_idempotent(client: TestClient):
+    headers = auth(client, CLIENTE)
+    order_id = create_order(client, headers)["id"]
+    responses = [client.post(f"/pedidos/{order_id}/cancelamento", headers=headers) for _ in range(2)]
+    assert [response.status_code for response in responses] == [200, 200]
+    assert responses[1].json()["status"] == "CANCELADO"
+    assert free_stock(client, 1, 1) == 20
+    assert audited_actions(client, order_id) == ["PEDIDO_CANCELADO", "PEDIDO_CRIADO"]
+
+
+def test_staff_cancels_only_orders_of_own_unit(client: TestClient):
+    order_id = create_order(client, auth(client, CLIENTE))["id"]
+    other_unit = client.post(f"/pedidos/{order_id}/cancelamento", headers=auth(client, GERENTE_CARUARU))
+    assert_error(other_unit, 404, "PEDIDO_NAO_ENCONTRADO", f"/pedidos/{order_id}/cancelamento")
+    same_unit = client.post(f"/pedidos/{order_id}/cancelamento", headers=auth(client, ATENDENTE_RECIFE))
+    assert same_unit.status_code == 200, same_unit.text
+
+
+def test_kitchen_cannot_cancel_order(client: TestClient):
+    headers = auth(client, CLIENTE)
+    order_id = create_order(client, headers)["id"]
+    response = client.post(f"/pedidos/{order_id}/cancelamento", headers=auth(client, COZINHA_RECIFE))
+    assert_error(response, 403, "PERFIL_SEM_PERMISSAO", f"/pedidos/{order_id}/cancelamento")
+    assert client.get(f"/pedidos/{order_id}", headers=headers).json()["status"] == "AGUARDANDO_PAGAMENTO"
+
+
+def test_paid_order_cannot_be_cancelled(client: TestClient):
+    order_id = create_paid_order(client)
+    response = client.post(f"/pedidos/{order_id}/cancelamento", headers=auth(client, CLIENTE))
+    assert_error(response, 409, "PEDIDO_NAO_CANCELAVEL", f"/pedidos/{order_id}/cancelamento")
+    assert client.get(f"/pedidos/{order_id}", headers=auth(client, CLIENTE)).json()["status"] == "CONFIRMADO"
+
+
+def test_cancelled_order_cannot_be_paid(client: TestClient):
+    headers = auth(client, CLIENTE)
+    order_id = create_order(client, headers)["id"]
+    assert client.post(f"/pedidos/{order_id}/cancelamento", headers=headers).status_code == 200
+    response = client.post(f"/pedidos/{order_id}/pagamentos/mock", headers=headers, json={"resultado": "APROVADO"})
+    assert_error(response, 409, "PEDIDO_SEM_PAGAMENTO", f"/pedidos/{order_id}/pagamentos/mock")
+
+
+# --- Falha técnica simulada no pagamento mock ---------------------------------
+
+
+def test_payment_failure_returns_503_and_keeps_order_waiting(client: TestClient):
+    headers = auth(client, CLIENTE)
+    order_id = create_order(client, headers)["id"]
+    failure = client.post(f"/pedidos/{order_id}/pagamentos/mock", headers=headers, json={"resultado": "FALHA"})
+    assert_error(failure, 503, "PAGAMENTO_INDISPONIVEL", f"/pedidos/{order_id}/pagamentos/mock")
+    assert client.get(f"/pedidos/{order_id}", headers=headers).json()["status"] == "AGUARDANDO_PAGAMENTO"
+    assert free_stock(client, 1, 1) == 19
+    retry = client.post(f"/pedidos/{order_id}/pagamentos/mock", headers=headers, json={"resultado": "APROVADO"})
+    assert (retry.status_code, retry.json()["pedido_status"]) == (200, "CONFIRMADO")
+    assert audited_actions(client, order_id) == ["PAGAMENTO_MOCK", "PAGAMENTO_FALHA", "PEDIDO_CRIADO"]
+
+
+def test_swagger_lists_payment_scenarios(client: TestClient):
+    openapi = client.get("/openapi.json").json()
+    body = openapi["paths"]["/pedidos/{pedido_id}/pagamentos/mock"]["post"]["requestBody"]["content"]["application/json"]["schema"]
+    resultado = resolve_schema(openapi, resolve_schema(openapi, body)["properties"]["resultado"])
+    assert set(resultado["enum"]) == {"APROVADO", "RECUSADO", "FALHA"}
