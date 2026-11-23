@@ -1,7 +1,7 @@
-# Execução do pytest em 23/11/2026 17:59 - Python 3.14.6
+# Execução do pytest em 23/11/2026 20:09 - Python 3.14.6
 # Comando: python -m pytest -v -W error
 ============================= test session starts =============================
-collecting ... collected 122 items
+collecting ... collected 125 items
 
 tests/test_api.py::test_health_and_public_catalog PASSED
 tests/test_api.py::test_login_and_missing_token PASSED
@@ -73,6 +73,9 @@ tests/test_api.py::test_kitchen_only_sees_paid_orders PASSED
 tests/test_api.py::test_client_cannot_see_or_pay_another_clients_order PASSED
 tests/test_api.py::test_product_without_offer_in_the_unit_is_unavailable PASSED
 tests/test_api.py::test_catalog_change_does_not_alter_existing_order PASSED
+tests/test_api.py::test_order_accepts_roteiro_field_names PASSED
+tests/test_api.py::test_order_without_channel_points_to_roteiro_field_name PASSED
+tests/test_api.py::test_order_reads_points_from_roteiro_field_name PASSED
 tests/test_migracoes.py::test_migracoes_geram_o_esquema_dos_modelos PASSED
 tests/test_migracoes.py::test_alembic_usa_o_database_url_do_ambiente PASSED
 tests/test_regras.py::test_cliente_so_usa_canais_de_cliente PASSED
@@ -126,4 +129,4 @@ tests/test_regras.py::test_resgate_de_100_pontos_vale_5_reais_ate_metade_do_pedi
 tests/test_regras.py::test_resgate_de_100_pontos_vale_5_reais_ate_metade_do_pedido[0-500-5000-RESGATE_INVALIDO] PASSED
 tests/test_regras.py::test_so_cliente_com_consentimento_ativo_resgata PASSED
 
-============================ 122 passed in 11.36s =============================
+============================ 125 passed in 14.14s =============================

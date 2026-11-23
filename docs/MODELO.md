@@ -98,7 +98,7 @@ O simulador recebe um cenário (`APROVADO`, `RECUSADO` ou `FALHA`) e retorna um 
 
 Versão vetorial em [img/der.svg](img/der.svg). O diagrama em Mermaid abaixo é a fonte da imagem.
 
-São onze tabelas: as nove da migração inicial, `movimentacao_estoque` (migração `0002`) e `fidelidade_movimento` (migração `0003`, que também acrescenta `desconto_centavos` e `pontos_resgatados` ao pedido). Os nomes abaixo são os nomes internos do banco. A API usa os mesmos nomes no corpo das requisições (por exemplo, `canal_pedido`); só os filtros da listagem de pedidos usam `canalPedido` e `status`. Campos terminados em `_centavos` são inteiros: por exemplo, R$ 12,50 é gravado como `1250`, evitando arredondamento de ponto flutuante.
+São onze tabelas: as nove da migração inicial, `movimentacao_estoque` (migração `0002`) e `fidelidade_movimento` (migração `0003`, que também acrescenta `desconto_centavos` e `pontos_resgatados` ao pedido). Os nomes abaixo são os nomes internos do banco, usados também nas respostas da API. O corpo de `POST /pedidos` e os filtros da listagem usam os nomes do roteiro (`unidadeId`, `canalPedido`, `produtoId`, `pontosResgatados`; filtros `canalPedido` e `status`), e o corpo aceita também os nomes internos. Campos terminados em `_centavos` são inteiros: por exemplo, R$ 12,50 é gravado como `1250`, evitando arredondamento de ponto flutuante.
 
 ```mermaid
 erDiagram

@@ -260,7 +260,7 @@ def test_swagger_authorize_asks_for_bearer_token(client: TestClient):
 def test_swagger_lists_canal_pedido_values(client: TestClient):
     openapi = client.get("/openapi.json").json()
     body = openapi["paths"]["/pedidos"]["post"]["requestBody"]["content"]["application/json"]["schema"]
-    canal = resolve_schema(openapi, resolve_schema(openapi, body)["properties"]["canal_pedido"])
+    canal = resolve_schema(openapi, resolve_schema(openapi, body)["properties"]["canalPedido"])
     assert set(canal["enum"]) == {"APP", "WEB", "PICKUP", "BALCAO", "TOTEM"}
 
 
@@ -721,3 +721,27 @@ def test_catalog_change_does_not_alter_existing_order(client: TestClient, sessio
         session.commit()
     order = client.get(f"/pedidos/{order_id}", headers=headers).json()
     assert (order["total_centavos"], order["itens"][0]["preco_unitario_centavos"], order["itens"][0]["nome"]) == (1890, 1890, "Tapioca de Carne de Sol")
+
+
+# --- Nomes de campo do roteiro no corpo do pedido -------------------------------
+# O roteiro usa unidadeId, canalPedido, produtoId e pontosResgatados; os nomes antigos continuam aceitos.
+
+
+def test_order_accepts_roteiro_field_names(client: TestClient):
+    payload = {"unidadeId": 1, "canalPedido": "APP", "itens": [{"produtoId": 3, "quantidade": 2}]}
+    response = client.post("/pedidos", headers=auth(client, CLIENTE), json=payload)
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert (body["unidade_id"], body["canal_pedido"], body["itens"][0]["produto_id"], body["total_centavos"]) == (1, "APP", 3, 1780)
+
+
+def test_order_without_channel_points_to_roteiro_field_name(client: TestClient):
+    response = client.post("/pedidos", headers=auth(client, CLIENTE), json={"unidadeId": 1, "itens": [{"produtoId": 1, "quantidade": 1}]})
+    body = assert_error(response, 422, "DADOS_INVALIDOS", "/pedidos")
+    assert [detail["field"] for detail in body["details"]] == ["canalPedido"]
+
+
+def test_order_reads_points_from_roteiro_field_name(client: TestClient):
+    payload = {"unidadeId": 1, "canalPedido": "APP", "itens": [{"produtoId": 1, "quantidade": 2}], "pontosResgatados": 150}
+    body = assert_error(client.post("/pedidos", headers=auth(client, CLIENTE), json=payload), 422, "DADOS_INVALIDOS", "/pedidos")
+    assert [detail["field"] for detail in body["details"]] == ["pontosResgatados"]

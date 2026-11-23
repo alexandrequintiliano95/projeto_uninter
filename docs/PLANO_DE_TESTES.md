@@ -29,7 +29,7 @@ Este plano lista os cenários que comprovam as regras da API, cada um com a evid
 | CT01 | Login válido | Seed aplicado | `POST /auth/login` com o cliente | `200`, `token_type` `Bearer`, perfil `CLIENTE` | Postman A02; pytest `test_login_and_missing_token` |
 | CT02 | Cadastro de cliente | E-mail ainda não cadastrado | `POST /auth/cadastro` com nome, e-mail, senha forte e `aceite_termos: true` | `201`, perfil `CLIENTE`, sem senha na resposta; login funciona depois | Postman A08; pytest `test_client_signs_up_and_can_order` |
 | CT03 | Consulta do cardápio | Nenhuma (rota pública) | `GET /unidades/1/cardapio` | `200`, tapioca com `preco_centavos` 1890 | Postman C02; pytest `test_health_and_public_catalog` |
-| CT04 | Criação de pedido | Cliente autenticado; estoque disponível | `POST /pedidos` com 1 tapioca, canal `APP` | `201`, status `AGUARDANDO_PAGAMENTO`, total 1890, `produto_id` 1; saldo livre cai 1 | Postman P02; pytest `test_order_items_return_catalog_product_id`, `test_client_cancels_own_pending_order` |
+| CT04 | Criação de pedido | Cliente autenticado; estoque disponível | `POST /pedidos` com `unidadeId` 1, `canalPedido` `APP` e 1 tapioca | `201`, status `AGUARDANDO_PAGAMENTO`, total 1890, `produto_id` 1; saldo livre cai 1 | Postman P02; pytest `test_order_items_return_catalog_product_id`, `test_client_cancels_own_pending_order` |
 | CT05 | Pagamento aprovado | Pedido aguardando pagamento | `POST /pedidos/{id}/pagamentos/mock` com `APROVADO` | `200`, `pedido_status` `CONFIRMADO` | Postman P10; pytest `test_kitchen_advances_paid_order` |
 | CT06 | Preparo e entrega | Pedido confirmado | `PATCH /pedidos/{id}/status` com `EM_PREPARO` e `PRONTO` (cozinha) e `ENTREGUE` (atendente) | `200` em cada etapa, status final `ENTREGUE` | Postman P12, P14, P16; pytest `test_order_goes_from_kitchen_to_delivery` |
 | CT07 | Listagem com filtros | Pedidos de canais e status diferentes | `GET /pedidos?canalPedido=APP&status=ENTREGUE` | `200` só com pedidos `APP` entregues | Postman P17; pytest `test_list_orders_filters_by_canal_pedido`, `test_list_orders_filters_by_status` |
@@ -46,7 +46,7 @@ Este plano lista os cenários que comprovam as regras da API, cada um com a evid
 | CT13 | Acesso sem token | Nenhuma | `GET /pedidos` sem `Authorization` | `401` `NAO_AUTENTICADO`, no formato de erro padrão | Postman P01; pytest `test_domain_error_uses_standard_format` |
 | CT14 | Senha errada | Seed aplicado | `POST /auth/login` com senha incorreta | `401` `CREDENCIAIS_INVALIDAS` | Postman A07; pytest `test_login_with_wrong_password_is_rejected` |
 | CT15 | E-mail já cadastrado | Cliente do seed existe | `POST /auth/cadastro` com `cliente@raizes.local` | `409` `EMAIL_JA_CADASTRADO` | Postman A09; pytest `test_signup_rejects_email_already_registered` |
-| CT16 | Canal inválido | Cliente autenticado | Pedido com `canal_pedido: "INVALIDO"` | `422` `DADOS_INVALIDOS`, campo `canal_pedido` em `details` | Postman P04; pytest `test_invalid_channel_and_invalid_quantity` |
+| CT16 | Canal inválido | Cliente autenticado | Pedido com `canalPedido: "INVALIDO"` | `422` `DADOS_INVALIDOS`, campo `canalPedido` em `details` | Postman P04; pytest `test_invalid_channel_and_invalid_quantity` |
 | CT17 | Canal não permitido ao perfil | Cliente autenticado | Pedido com canal `BALCAO` | `403` `CANAL_NAO_PERMITIDO` | Postman P05; pytest `test_client_cannot_create_balcao_order` |
 | CT18 | Estoque insuficiente no pedido | Saldo livre menor que a quantidade | Pedido com quantidade acima do saldo | `409` `ESTOQUE_INSUFICIENTE`, sem reservar nada | Postman P06; pytest `test_order_beyond_stock_is_rejected_without_reserving` |
 | CT19 | Pedido de outra unidade | Pedido criado em Recife | `GET /pedidos/{id}` com o gerente de Caruaru | `404` `PEDIDO_NAO_ENCONTRADO` | Postman P07; pytest `test_staff_cancels_only_orders_of_own_unit`, `test_acesso_ao_pedido` |
@@ -58,7 +58,7 @@ Este plano lista os cenários que comprovam as regras da API, cada um com a evid
 | CT25 | Cancelar pedido pago | Pedido já pago (confirmado ou em etapa seguinte) | `POST /pedidos/{id}/cancelamento` | `409` `PEDIDO_NAO_CANCELAVEL` | Postman X03; pytest `test_paid_order_cannot_be_cancelled` |
 | CT26 | Saída de estoque acima do saldo livre | Itens reservados em pedido | `SAIDA` maior que o saldo livre | `409` `ESTOQUE_INSUFICIENTE`; reservas intactas | Postman E02; pytest `test_stock_exit_never_takes_reserved_items` |
 | CT27 | Ajuste de estoque sem permissão | Atendente ou gerente de outra unidade | `POST /unidades/1/estoque/movimentacoes` | `403` `PERFIL_SEM_PERMISSAO` ou `UNIDADE_NAO_PERMITIDA` | Postman E03, E04; pytest `test_only_manager_of_the_unit_moves_stock` |
-| CT28 | Resgate fora das regras | Cliente com pontos | `pontos_resgatados` 150, acima do saldo ou acima de 50% | `422` `DADOS_INVALIDOS`, `409` `SALDO_PONTOS_INSUFICIENTE` ou `422` `DESCONTO_ACIMA_DO_LIMITE` | Postman F07; pytest `test_redemption_limits` |
+| CT28 | Resgate fora das regras | Cliente com pontos | `pontosResgatados` 150, acima do saldo ou acima de 50% | `422` `DADOS_INVALIDOS`, `409` `SALDO_PONTOS_INSUFICIENTE` ou `422` `DESCONTO_ACIMA_DO_LIMITE` | Postman F07; pytest `test_redemption_limits` |
 | CT29 | Auditoria por cliente | Cliente autenticado | `GET /auditoria` | `403` `PERFIL_SEM_PERMISSAO` | Postman U02; pytest `test_client_consent_and_manager_audit` |
 
 Toda resposta de erro também é conferida por um teste geral da coleção Postman: ela precisa ter exatamente os campos `error`, `message`, `details`, `timestamp` e `path`. Na execução registrada, esse teste rodou em 22 respostas de erro.
@@ -99,7 +99,7 @@ A coleção guarda os IDs criados em variáveis (`pedidoId`, `pedidoCanceladoId`
 
 | Execução | Resultado | Evidência |
 | --- | --- | --- |
-| pytest | 122 testes passaram, 0 falhas | [evidencias/pytest-execucao.txt](evidencias/pytest-execucao.txt) |
+| pytest | 125 testes passaram, 0 falhas | [evidencias/pytest-execucao.txt](evidencias/pytest-execucao.txt) |
 | Newman, 1ª execução (banco recém-criado) | 54 requisições, 131 asserções, 0 falhas | [evidencias/newman-execucao.txt](evidencias/newman-execucao.txt) |
 | Newman, 2ª execução seguida (mesmo banco) | 54 requisições, 131 asserções, 0 falhas | Execução de conferência, não arquivada |
 

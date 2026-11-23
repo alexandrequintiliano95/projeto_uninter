@@ -30,7 +30,7 @@ O login (`POST /auth/login`) é pré-condição de todos os casos de uso, exceto
 | UC04 | Consultar cardápio | Cliente, Atendente | `GET /unidades`, `GET /unidades/{id}/cardapio` |
 | **UC05** | **Realizar pedido (crítico)** | Cliente, Atendente | `POST /pedidos` |
 | UC06 | Reservar estoque (incluído por UC05) | Sistema | Parte de `POST /pedidos` |
-| UC07 | Resgatar pontos (estende UC05) | Cliente | Campo `pontos_resgatados` em `POST /pedidos` |
+| UC07 | Resgatar pontos (estende UC05) | Cliente | Campo `pontosResgatados` em `POST /pedidos` |
 | UC08 | Pagar pedido (simulado) | Cliente, Atendente, Provedor de pagamento | `POST /pedidos/{id}/pagamentos/mock` |
 | UC09 | Acumular pontos (estende UC08) | Sistema | Parte do pagamento aprovado |
 | UC10 | Cancelar pedido | Cliente, Atendente | `POST /pedidos/{id}/cancelamento` |
@@ -50,7 +50,7 @@ O login (`POST /auth/login`) é pré-condição de todos os casos de uso, exceto
 | **Ator principal** | Cliente (canais `APP`, `WEB` e `PICKUP`). |
 | **Outros atores** | Atendente ou gerente da unidade (canais `BALCAO`, `TOTEM` e `PICKUP`). |
 | **Gatilho** | O ator envia `POST /pedidos` com a unidade, o canal e os itens. |
-| **Relacionamentos** | Inclui UC06 Reservar estoque. É estendido por UC07 Resgatar pontos, quando o cliente informa `pontos_resgatados`. |
+| **Relacionamentos** | Inclui UC06 Reservar estoque. É estendido por UC07 Resgatar pontos, quando o cliente informa `pontosResgatados`. |
 
 ### Pré-condições
 
@@ -62,7 +62,7 @@ O login (`POST /auth/login`) é pré-condição de todos os casos de uso, exceto
 ### Fluxo principal
 
 1. O cliente consulta o cardápio da unidade (UC04).
-2. O cliente envia o pedido com a unidade, o canal `APP` e os itens (produto e quantidade).
+2. O cliente envia o pedido com a unidade (`unidadeId`), o canal (`canalPedido`, aqui `APP`) e os itens (`produtoId` e `quantidade`).
 3. O sistema identifica o usuário pelo token e confere que o canal é permitido ao perfil dele.
 4. O sistema confere que a unidade existe e está ativa.
 5. O sistema cancela os pedidos vencidos da unidade e devolve as reservas deles, para trabalhar com o saldo real.
@@ -76,7 +76,7 @@ O login (`POST /auth/login`) é pré-condição de todos os casos de uso, exceto
 ### Fluxos alternativos
 
 - **A1. Pedido de balcão.** No passo 2, um atendente ou gerente envia o pedido com canal `BALCAO`, `TOTEM` ou `PICKUP`, para a própria unidade. O pedido fica sem cliente identificado (`cliente_id` nulo), não pontua e não aceita resgate de pontos.
-- **A2. Resgate de pontos (UC07).** No passo 2, o cliente informa `pontos_resgatados`. Depois do passo 7, o sistema confere o consentimento de fidelidade, o saldo de pontos e os limites, e calcula o desconto (100 pontos valem R$ 5,00, até 50% do pedido). No passo 9, o total gravado já vem com o desconto e os pontos são debitados do saldo.
+- **A2. Resgate de pontos (UC07).** No passo 2, o cliente informa `pontosResgatados`. Depois do passo 7, o sistema confere o consentimento de fidelidade, o saldo de pontos e os limites, e calcula o desconto (100 pontos valem R$ 5,00, até 50% do pedido). No passo 9, o total gravado já vem com o desconto e os pontos são debitados do saldo.
 
 ### Exceções
 

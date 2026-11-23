@@ -4,7 +4,7 @@
 from datetime import datetime
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, StringConstraints
 
 from app.application.estoque import MovimentacaoDetalhada
 from app.application.pedidos import PedidoDetalhado
@@ -63,16 +63,24 @@ class CardapioItem(BaseModel):
     saldo_disponivel: int
 
 
+# O corpo do pedido usa os nomes do roteiro (unidadeId, canalPedido, produtoId, pontosResgatados).
+# Os nomes antigos (unidade_id, canal_pedido, produto_id, pontos_resgatados) continuam aceitos.
 class PedidoItemRequest(BaseModel):
-    produto_id: int = Field(gt=0)
+    produto_id: int = Field(gt=0, validation_alias=AliasChoices("produtoId", "produto_id"))
     quantidade: int = Field(gt=0)
 
 
 class PedidoRequest(BaseModel):
-    unidade_id: int = Field(gt=0)
-    canal_pedido: CanalPedido
+    unidade_id: int = Field(gt=0, validation_alias=AliasChoices("unidadeId", "unidade_id"))
+    canal_pedido: CanalPedido = Field(validation_alias=AliasChoices("canalPedido", "canal_pedido"), description="Canal de venda: APP, WEB, PICKUP, BALCAO ou TOTEM.")
     itens: list[PedidoItemRequest] = Field(min_length=1)
-    pontos_resgatados: int = Field(0, ge=0, multiple_of=100, description="Pontos de fidelidade usados como desconto (múltiplos de 100; cada 100 valem R$ 5,00; até 50% do pedido). Só para clientes com consentimento ativo.")
+    pontos_resgatados: int = Field(
+        0,
+        ge=0,
+        multiple_of=100,
+        validation_alias=AliasChoices("pontosResgatados", "pontos_resgatados"),
+        description="Pontos de fidelidade usados como desconto (múltiplos de 100; cada 100 valem R$ 5,00; até 50% do pedido). Só para clientes com consentimento ativo.",
+    )
 
 
 class ItemPedidoResponse(BaseModel):

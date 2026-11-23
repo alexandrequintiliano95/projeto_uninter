@@ -473,7 +473,7 @@
             "url": "{{baseUrl}}/pedidos",
             "body": {
               "mode": "raw",
-              "raw": "{\"unidade_id\": 1, \"canal_pedido\": \"APP\", \"itens\": [{\"produto_id\": 1, \"quantidade\": 1}]}"
+              "raw": "{\"unidadeId\": 1, \"canalPedido\": \"APP\", \"itens\": [{\"produtoId\": 1, \"quantidade\": 1}]}"
             }
           },
           "event": [
@@ -533,7 +533,7 @@
             "url": "{{baseUrl}}/pedidos",
             "body": {
               "mode": "raw",
-              "raw": "{\"unidade_id\": 1, \"canal_pedido\": \"INVALIDO\", \"itens\": [{\"produto_id\": 1, \"quantidade\": 1}]}"
+              "raw": "{\"unidadeId\": 1, \"canalPedido\": \"INVALIDO\", \"itens\": [{\"produtoId\": 1, \"quantidade\": 1}]}"
             }
           },
           "event": [
@@ -544,7 +544,7 @@
                 "exec": [
                   "pm.test('Status 422', () => pm.response.to.have.status(422));",
                   "pm.test('Código de erro DADOS_INVALIDOS', () => pm.expect(pm.response.json().error).to.eql('DADOS_INVALIDOS'));",
-                  "pm.test('Aponta o campo canal_pedido', () => pm.expect(pm.response.json().details[0].field).to.eql('canal_pedido'));"
+                  "pm.test('Aponta o campo canalPedido', () => pm.expect(pm.response.json().details[0].field).to.eql('canalPedido'));"
                 ]
               }
             }
@@ -567,7 +567,7 @@
             "url": "{{baseUrl}}/pedidos",
             "body": {
               "mode": "raw",
-              "raw": "{\"unidade_id\": 1, \"canal_pedido\": \"BALCAO\", \"itens\": [{\"produto_id\": 1, \"quantidade\": 1}]}"
+              "raw": "{\"unidadeId\": 1, \"canalPedido\": \"BALCAO\", \"itens\": [{\"produtoId\": 1, \"quantidade\": 1}]}"
             }
           },
           "event": [
@@ -600,7 +600,7 @@
             "url": "{{baseUrl}}/pedidos",
             "body": {
               "mode": "raw",
-              "raw": "{\"unidade_id\": 1, \"canal_pedido\": \"APP\", \"itens\": [{\"produto_id\": 1, \"quantidade\": 9999}]}"
+              "raw": "{\"unidadeId\": 1, \"canalPedido\": \"APP\", \"itens\": [{\"produtoId\": 1, \"quantidade\": 9999}]}"
             }
           },
           "event": [
@@ -1012,7 +1012,7 @@
             "url": "{{baseUrl}}/pedidos",
             "body": {
               "mode": "raw",
-              "raw": "{\"unidade_id\": 1, \"canal_pedido\": \"APP\", \"itens\": [{\"produto_id\": 1, \"quantidade\": 1}]}"
+              "raw": "{\"unidadeId\": 1, \"canalPedido\": \"APP\", \"itens\": [{\"produtoId\": 1, \"quantidade\": 1}]}"
             }
           },
           "event": [
@@ -1095,7 +1095,7 @@
             "url": "{{baseUrl}}/pedidos",
             "body": {
               "mode": "raw",
-              "raw": "{\"unidade_id\": 1, \"canal_pedido\": \"APP\", \"itens\": [{\"produto_id\": 1, \"quantidade\": 1}]}"
+              "raw": "{\"unidadeId\": 1, \"canalPedido\": \"APP\", \"itens\": [{\"produtoId\": 1, \"quantidade\": 1}]}"
             }
           },
           "event": [
@@ -1388,7 +1388,7 @@
             "url": "{{baseUrl}}/pedidos",
             "body": {
               "mode": "raw",
-              "raw": "{\"unidade_id\": 1, \"canal_pedido\": \"APP\", \"itens\": [{\"produto_id\": 1, \"quantidade\": 6}]}"
+              "raw": "{\"unidadeId\": 1, \"canalPedido\": \"APP\", \"itens\": [{\"produtoId\": 1, \"quantidade\": 6}]}"
             }
           },
           "event": [
@@ -1482,7 +1482,7 @@
             "url": "{{baseUrl}}/pedidos",
             "body": {
               "mode": "raw",
-              "raw": "{\"unidade_id\": 1, \"canal_pedido\": \"APP\", \"itens\": [{\"produto_id\": 1, \"quantidade\": 2}], \"pontos_resgatados\": 100}"
+              "raw": "{\"unidadeId\": 1, \"canalPedido\": \"APP\", \"itens\": [{\"produtoId\": 1, \"quantidade\": 2}], \"pontosResgatados\": 100}"
             }
           },
           "event": [
@@ -1516,7 +1516,7 @@
             "url": "{{baseUrl}}/pedidos",
             "body": {
               "mode": "raw",
-              "raw": "{\"unidade_id\": 1, \"canal_pedido\": \"APP\", \"itens\": [{\"produto_id\": 1, \"quantidade\": 2}], \"pontos_resgatados\": 150}"
+              "raw": "{\"unidadeId\": 1, \"canalPedido\": \"APP\", \"itens\": [{\"produtoId\": 1, \"quantidade\": 2}], \"pontosResgatados\": 150}"
             }
           },
           "event": [

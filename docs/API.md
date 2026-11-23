@@ -124,20 +124,22 @@ Erro: `404` quando a unidade não existe ou está inativa.
 
 ### POST `/pedidos`
 
-Cria um pedido e reserva o estoque por 15 minutos. `canal_pedido` aceita `APP`, `WEB`, `PICKUP`, `BALCAO` ou `TOTEM`. Cliente só pode usar `APP`, `WEB` ou `PICKUP`. Atendente e gerente da própria unidade podem usar `BALCAO`, `TOTEM` ou `PICKUP`. Os itens da resposta trazem em `produto_id` o ID do produto do catálogo.
+Cria um pedido e reserva o estoque por 15 minutos. `canalPedido` aceita `APP`, `WEB`, `PICKUP`, `BALCAO` ou `TOTEM`. Cliente só pode usar `APP`, `WEB` ou `PICKUP`. Atendente e gerente da própria unidade podem usar `BALCAO`, `TOTEM` ou `PICKUP`. Os itens da resposta trazem em `produto_id` o ID do produto do catálogo.
 
-O campo opcional `pontos_resgatados` usa pontos de fidelidade como desconto. Ele aceita múltiplos de 100 (cada 100 pontos valem R$ 5,00), limitados ao saldo e a 50% do valor do pedido, e só vale para cliente com consentimento `FIDELIDADE` ativo. Os pontos saem do saldo na criação e voltam (`ESTORNO`) se o pedido for cancelado, recusado ou vencer. `total_centavos` é o valor a pagar, já com o desconto.
+O campo opcional `pontosResgatados` usa pontos de fidelidade como desconto. Ele aceita múltiplos de 100 (cada 100 pontos valem R$ 5,00), limitados ao saldo e a 50% do valor do pedido, e só vale para cliente com consentimento `FIDELIDADE` ativo. Os pontos saem do saldo na criação e voltam (`ESTORNO`) se o pedido for cancelado, recusado ou vencer. `total_centavos` é o valor a pagar, já com o desconto.
 
 Request:
 
 ```json
 {
-  "unidade_id":1,
-  "canal_pedido":"APP",
-  "itens":[{"produto_id":1,"quantidade":1}],
-  "pontos_resgatados":0
+  "unidadeId":1,
+  "canalPedido":"APP",
+  "itens":[{"produtoId":1,"quantidade":1}],
+  "pontosResgatados":0
 }
 ```
+
+O corpo usa os nomes de campo do roteiro (`unidadeId`, `canalPedido`, `produtoId`, `pontosResgatados`). Os nomes internos (`unidade_id`, `canal_pedido`, `produto_id`, `pontos_resgatados`) também são aceitos, para compatibilidade. A resposta usa os nomes internos, como as demais rotas.
 
 Resposta `201`:
 
