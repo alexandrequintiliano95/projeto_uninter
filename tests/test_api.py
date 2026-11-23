@@ -497,3 +497,54 @@ def test_menu_releases_expired_reservations(client: TestClient, session_factory:
     with session_factory() as session:
         order = session.get(Pedido, order_id)
         assert (order.status, order.motivo_cancelamento) == ("CANCELADO", "PRAZO_EXPIRADO")
+
+
+# --- Cadastro público de cliente ----------------------------------------------
+
+
+def signup(client: TestClient, **changes):
+    payload = {"nome": "Maria das Dores", "email": "maria@exemplo.com", "senha": "Segura123", "aceite_termos": True, **changes}
+    return client.post("/auth/cadastro", json=payload)
+
+
+def test_client_signs_up_and_can_order(client: TestClient):
+    response = signup(client, email="  Maria@Exemplo.COM ")
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert {key: body[key] for key in ("nome", "email", "perfil")} == {"nome": "Maria das Dores", "email": "maria@exemplo.com", "perfil": "CLIENTE"}
+    assert not {"senha", "senha_hash"} & set(body)
+    login = client.post("/auth/login", json={"email": "maria@exemplo.com", "senha": "Segura123"})
+    assert (login.status_code, login.json()["perfil"], login.json()["user_id"]) == (200, "CLIENTE", body["id"])
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    assert create_order(client, headers)["cliente_id"] == body["id"]
+
+
+def test_signup_ignores_profile_and_unit_sent_in_body(client: TestClient):
+    response = signup(client, perfil="GERENTE", unidade_id=1)
+    assert (response.status_code, response.json()["perfil"]) == (201, "CLIENTE")
+    headers = auth(client, ("maria@exemplo.com", "Segura123"))
+    assert_error(client.get("/auditoria", headers=headers), 403, "PERFIL_SEM_PERMISSAO", "/auditoria")
+
+
+def test_signup_rejects_email_already_registered(client: TestClient):
+    assert_error(signup(client, email="CLIENTE@raizes.local"), 409, "EMAIL_JA_CADASTRADO", "/auth/cadastro")
+
+
+def test_signup_requires_accepting_terms(client: TestClient):
+    assert_error(signup(client, aceite_termos=False), 422, "TERMOS_NAO_ACEITOS", "/auth/cadastro")
+    assert client.post("/auth/login", json={"email": "maria@exemplo.com", "senha": "Segura123"}).status_code == 401
+
+
+def test_signup_rejects_weak_password(client: TestClient):
+    assert_error(signup(client, senha="senhafraca"), 422, "SENHA_FRACA", "/auth/cadastro")
+
+
+def test_signup_validates_name_and_email_format(client: TestClient):
+    body = assert_error(signup(client, nome=" ", email="nao-e-email"), 422, "DADOS_INVALIDOS", "/auth/cadastro")
+    assert sorted(detail["field"] for detail in body["details"]) == ["email", "nome"]
+
+
+def test_signup_records_only_the_consents_given(client: TestClient):
+    assert signup(client, aceita_fidelidade=True).status_code == 201
+    consents = client.get("/me/consentimentos", headers=auth(client, ("maria@exemplo.com", "Segura123"))).json()
+    assert [(item["finalidade"], item["concedido"], item["versao_termo"]) for item in consents] == [("FIDELIDADE", True, "v1")]

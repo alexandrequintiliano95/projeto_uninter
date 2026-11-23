@@ -60,6 +60,36 @@ Resposta `200`:
 
 Erros: `401` para credencial inválida e `422` para corpo inválido.
 
+### POST `/auth/cadastro`
+
+Cadastro público de cliente, sem token. Request:
+
+```json
+{
+  "nome":"Maria das Dores",
+  "email":"maria@exemplo.com",
+  "senha":"Segura123",
+  "aceite_termos":true,
+  "aceita_fidelidade":false,
+  "aceita_marketing":false
+}
+```
+
+- A conta sempre nasce com perfil `CLIENTE` e sem unidade. Campos como `perfil` ou `unidade_id` enviados no corpo são ignorados.
+- O e-mail é gravado em minúsculas e sem espaços nas pontas. A senha é guardada só como hash Argon2 e nunca volta nas respostas.
+- `aceite_termos` precisa ser `true`. A auditoria registra `USUARIO_CADASTRADO` com a versão dos termos aceita (`v1`), sem guardar o e-mail.
+- `aceita_fidelidade` e `aceita_marketing` são consentimentos opcionais e separados, `false` por padrão. Só geram evento em `/me/consentimentos` quando chegam como `true`.
+
+Resposta `201`:
+
+```json
+{"id":6,"nome":"Maria das Dores","email":"maria@exemplo.com","perfil":"CLIENTE"}
+```
+
+Depois do cadastro, o login é feito normalmente em `POST /auth/login`.
+
+Erros: `409` (`EMAIL_JA_CADASTRADO`); `422` (`TERMOS_NAO_ACEITOS`) quando `aceite_termos` é `false`; `422` (`SENHA_FRACA`) para senha fora de 8 a 128 caracteres ou sem letra e número; `422` (`DADOS_INVALIDOS`) para nome vazio ou com menos de 2 caracteres e e-mail em formato inválido.
+
 ### GET `/unidades`
 
 Lista unidades ativas. Não exige token.

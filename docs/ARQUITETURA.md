@@ -41,9 +41,10 @@ app/
                          NaoEncontrado, Conflito, DadosInvalidos, ServicoIndisponivel)
     regras.py            canais por perfil, quem paga e quem cancela, transições
                          de status, quando cancelar, acesso ao pedido, prazo da reserva,
-                         gerente da unidade, saldo após movimentação de estoque
+                         gerente da unidade, saldo após movimentação de estoque,
+                         senha forte e versão dos termos de uso
   application/
-    auth.py              login e identificação do usuário pelo token
+    auth.py              cadastro de cliente, login e identificação do usuário pelo token
     catalogo.py          unidades e cardápio (libera reservas vencidas antes)
     pedidos.py           expirar, criar, consultar, listar, pagar (mock), cancelar,
                          mudar status

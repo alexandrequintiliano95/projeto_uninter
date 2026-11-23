@@ -19,6 +19,10 @@ class UsuarioRepositorio:
     def obter(self, usuario_id: int) -> Usuario | None:
         return self.session.get(Usuario, usuario_id)
 
+    def adicionar(self, usuario: Usuario) -> None:
+        self.session.add(usuario)
+        self.session.flush()
+
 
 class CatalogoRepositorio:
     def __init__(self, session: Session) -> None:

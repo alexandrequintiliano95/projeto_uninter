@@ -4,9 +4,10 @@
 from datetime import timedelta
 
 from .enums import CanalPedido, Perfil, StatusPedido, TipoMovimentacao
-from .errors import Conflito, NaoEncontrado, PermissaoNegada
+from .errors import Conflito, DadosInvalidos, NaoEncontrado, PermissaoNegada
 
 PRAZO_RESERVA = timedelta(minutes=15)
+VERSAO_TERMOS_DE_USO = "v1"
 
 CANAIS_CLIENTE = frozenset({CanalPedido.APP, CanalPedido.WEB, CanalPedido.PICKUP})
 CANAIS_EQUIPE = frozenset({CanalPedido.BALCAO, CanalPedido.TOTEM, CanalPedido.PICKUP})
@@ -91,3 +92,10 @@ def saldo_livre_apos_movimentacao(saldo_livre: int, tipo: TipoMovimentacao, quan
     if novo < 0:
         raise Conflito("ESTOQUE_INSUFICIENTE", "A saída é maior que o saldo livre. Itens reservados em pedidos não podem ser retirados.")
     return novo
+
+
+def exigir_senha_forte(senha: str) -> None:
+    """Senha de 8 a 128 caracteres, com pelo menos uma letra e um número."""
+    tamanho_ok = 8 <= len(senha) <= 128
+    if not (tamanho_ok and any(c.isalpha() for c in senha) and any(c.isdigit() for c in senha)):
+        raise DadosInvalidos("SENHA_FRACA", "A senha precisa ter de 8 a 128 caracteres, com pelo menos uma letra e um número.")

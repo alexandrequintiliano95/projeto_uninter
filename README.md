@@ -36,6 +36,6 @@ uvicorn app.main:app --reload
 
 A documentação interativa fica em `http://127.0.0.1:8000/docs`.
 
-Endpoints disponíveis nesta etapa: `/health`, `/auth/login`, `/unidades`, `/unidades/{id}/cardapio`, `/pedidos`, `/pedidos/{id}`, `/pedidos/{id}/pagamentos/mock`, `/pedidos/{id}/cancelamento`, `/pedidos/{id}/status`, `/unidades/{id}/estoque/movimentacoes`, `/me/consentimentos` e `/auditoria`.
+Endpoints disponíveis nesta etapa: `/health`, `/auth/cadastro`, `/auth/login`, `/unidades`, `/unidades/{id}/cardapio`, `/pedidos`, `/pedidos/{id}`, `/pedidos/{id}/pagamentos/mock`, `/pedidos/{id}/cancelamento`, `/pedidos/{id}/status`, `/unidades/{id}/estoque/movimentacoes`, `/me/consentimentos` e `/auditoria`.
 
 Testes automatizados: `python -m pytest -q`. A coleção Postman está em `postman/raizes-backend.postman_collection.json` e possui 11 requisições, incluindo casos positivos e negativos.

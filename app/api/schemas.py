@@ -29,6 +29,23 @@ class LoginResponse(BaseModel):
     perfil: str
 
 
+class CadastroRequest(BaseModel):
+    nome: Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=120)]
+    email: Annotated[str, StringConstraints(strip_whitespace=True, to_lower=True, max_length=180, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")]
+    senha: str = Field(description="De 8 a 128 caracteres, com pelo menos uma letra e um número.")
+    aceite_termos: bool = Field(description="Obrigatório: precisa ser true para criar a conta.")
+    aceita_fidelidade: bool = Field(False, description="Consentimento opcional para o programa de fidelidade.")
+    aceita_marketing: bool = Field(False, description="Consentimento opcional para receber comunicações de marketing.")
+
+
+class CadastroResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    nome: str
+    email: str
+    perfil: str
+
+
 class UnidadeResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int

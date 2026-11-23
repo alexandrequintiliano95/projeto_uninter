@@ -8,13 +8,14 @@ from pathlib import Path
 import pytest
 
 from app.domain.enums import CanalPedido, Perfil, StatusPedido, TipoMovimentacao
-from app.domain.errors import Conflito, NaoEncontrado, PermissaoNegada
+from app.domain.errors import Conflito, DadosInvalidos, NaoEncontrado, PermissaoNegada
 from app.domain.regras import (
     exigir_acesso_ao_pedido,
     exigir_gerente_da_unidade,
     exigir_pode_cancelar,
     exigir_pode_criar_pedido,
     exigir_pode_pagar,
+    exigir_senha_forte,
     precisa_cancelar,
     saldo_livre_apos_movimentacao,
     validar_mudanca_status,
@@ -142,3 +143,24 @@ def test_saldo_livre_apos_movimentacao(saldo, tipo, quantidade, esperado):
     with pytest.raises(Conflito) as erro:
         saldo_livre_apos_movimentacao(saldo, tipo, quantidade)
     assert erro.value.codigo == esperado
+
+
+@pytest.mark.parametrize(
+    ("senha", "aceita"),
+    [
+        ("Segura123", True),
+        ("abc12345", True),
+        ("a1" * 64, True),
+        ("abcdefgh", False),
+        ("12345678", False),
+        ("abc1234", False),
+        ("a1" * 64 + "x", False),
+    ],
+)
+def test_senha_precisa_ter_8_a_128_caracteres_com_letra_e_numero(senha, aceita):
+    if aceita:
+        assert exigir_senha_forte(senha) is None
+        return
+    with pytest.raises(DadosInvalidos) as erro:
+        exigir_senha_forte(senha)
+    assert erro.value.codigo == "SENHA_FRACA"

@@ -17,10 +17,16 @@ def listar(session: Session, usuario: Usuario) -> list[ConsentimentoEvento]:
     return list(atuais.values())
 
 
-def registrar(session: Session, usuario: Usuario, finalidade: FinalidadeConsentimento, concedido: bool, versao_termo: str) -> ConsentimentoEvento:
-    exigir_perfil(usuario.perfil, frozenset({Perfil.CLIENTE}), "Somente clientes gerenciam seus consentimentos.")
+def adicionar_evento(session: Session, usuario: Usuario, finalidade: FinalidadeConsentimento, concedido: bool, versao_termo: str) -> ConsentimentoEvento:
+    """Grava o evento de concessão ou revogação e a auditoria. Não confirma a transação."""
     evento = ConsentimentoEvento(usuario_id=usuario.id, finalidade=finalidade.value, concedido=concedido, versao_termo=versao_termo, criado_em=datetime.now(timezone.utc).replace(tzinfo=None))
     ConsentimentoRepositorio(session).adicionar(evento)
     AuditoriaRepositorio(session).registrar(usuario.id, None, "CONSENTIMENTO_ATUALIZADO", "CONSENTIMENTO", evento.id, evento.finalidade)
+    return evento
+
+
+def registrar(session: Session, usuario: Usuario, finalidade: FinalidadeConsentimento, concedido: bool, versao_termo: str) -> ConsentimentoEvento:
+    exigir_perfil(usuario.perfil, frozenset({Perfil.CLIENTE}), "Somente clientes gerenciam seus consentimentos.")
+    evento = adicionar_evento(session, usuario, finalidade, concedido, versao_termo)
     session.commit()
     return evento

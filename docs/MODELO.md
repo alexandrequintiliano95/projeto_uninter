@@ -18,6 +18,7 @@ Decisões para implementar o fluxo pedido → pagamento mock → preparo → ent
 | Ação | CLIENTE | ATENDENTE | COZINHA | GERENTE |
 | --- | --- | --- | --- | --- |
 | Consultar unidades e cardápio | Permitido, inclusive sem login | Permitido | Permitido | Permitido |
+| Criar conta | Cadastro público, sem login; a conta nasce como CLIENTE | Não (equipe vem do seed) | Não | Não |
 | Criar pedido | Para si, em unidade ativa | Na própria unidade | Não | Na própria unidade |
 | Consultar/listar pedidos e filtrar canal/status | Somente próprios | Da própria unidade | Da própria unidade, apenas confirmados, em preparo, prontos ou entregues | Da própria unidade |
 | Solicitar pagamento mock | Do próprio pedido | De pedido da própria unidade | Não | De pedido da própria unidade |
@@ -34,7 +35,7 @@ Regras de aplicação:
 2. O cliente cria pedidos com `cliente_id = criado_por_id = usuário autenticado`. Não escolhe outro cliente no request.
 3. Atendente e gerente criam pedidos presenciais com `criado_por_id = usuário autenticado` e `cliente_id = NULL`. Não é necessário cadastrar o consumidor do balcão. Vinculação posterior e fidelidade nesses pedidos ficam fora do MVP.
 4. Canais permitidos: cliente usa `APP`, `WEB` ou `PICKUP`; atendente/gerente usam `BALCAO`, `TOTEM` ou `PICKUP`. O totem é representado por chamadas autenticadas de um atendente no protótipo. O canal não altera permissões.
-5. Gerente não possui acesso global. Cadastros de unidades, produtos e equipe entram pelo seed; administração da matriz e cadastro público de usuários ficam como evolução.
+5. Gerente não possui acesso global. Cadastros de unidades, produtos e equipe entram pelo seed; administração da matriz e cadastro de equipe pela API ficam como evolução. O cadastro público (`POST /auth/cadastro`) cria apenas clientes: perfil e unidade nunca vêm do request, o aceite dos termos de uso é obrigatório e os consentimentos de fidelidade e marketing são opcionais e separados.
 6. Respostas de cozinha trazem ID do pedido, canal, itens e status, sem nome, e-mail, senha ou token de clientes. Os demais perfis também recebem apenas os campos necessários.
 7. Sem autenticação: `401`. Perfil sem permissão: `403`. Registro inexistente ou fora da unidade/propriedade permitida: `404`. Listagens já aplicam o filtro de acesso e possuem paginação.
 
