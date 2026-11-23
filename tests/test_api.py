@@ -745,3 +745,24 @@ def test_order_reads_points_from_roteiro_field_name(client: TestClient):
     payload = {"unidadeId": 1, "canalPedido": "APP", "itens": [{"produtoId": 1, "quantidade": 2}], "pontosResgatados": 150}
     body = assert_error(client.post("/pedidos", headers=auth(client, CLIENTE), json=payload), 422, "DADOS_INVALIDOS", "/pedidos")
     assert [detail["field"] for detail in body["details"]] == ["pontosResgatados"]
+
+
+# --- Swagger documenta os erros no formato único --------------------------------
+
+
+def error_schema_properties(openapi: dict, operation: dict, status_code: str) -> set[str]:
+    schema = operation["responses"][status_code]["content"]["application/json"]["schema"]
+    return set(resolve_schema(openapi, schema)["properties"])
+
+
+def test_swagger_documents_errors_in_the_standard_format(client: TestClient):
+    openapi = client.get("/openapi.json").json()
+    formato = {"error", "message", "details", "timestamp", "path"}
+    criar = openapi["paths"]["/pedidos"]["post"]
+    for status_code in ("401", "403", "404", "409", "422"):
+        assert error_schema_properties(openapi, criar, status_code) == formato, status_code
+    pagar = openapi["paths"]["/pedidos/{pedido_id}/pagamentos/mock"]["post"]
+    assert error_schema_properties(openapi, pagar, "503") == formato
+    login = openapi["paths"]["/auth/login"]["post"]
+    assert error_schema_properties(openapi, login, "401") == formato
+    assert "HTTPValidationError" not in openapi["components"]["schemas"]

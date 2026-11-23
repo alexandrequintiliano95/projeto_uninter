@@ -2,14 +2,14 @@
 from fastapi import APIRouter
 
 from app.api.deps import Sessao, UsuarioAtual
-from app.api.schemas import FidelidadeResponse, MovimentoFidelidadeResponse, RegrasFidelidadeResponse, utc_iso
+from app.api.schemas import FidelidadeResponse, MovimentoFidelidadeResponse, RegrasFidelidadeResponse, respostas_de_erro, utc_iso
 from app.application import fidelidade
 from app.domain import regras
 
 router = APIRouter(tags=["Fidelidade"])
 
 
-@router.get("/me/fidelidade", response_model=FidelidadeResponse)
+@router.get("/me/fidelidade", response_model=FidelidadeResponse, responses=respostas_de_erro(401, 403), summary="Consultar saldo e extrato de pontos")
 def loyalty_statement(user: UsuarioAtual, session: Sessao) -> FidelidadeResponse:
     """Saldo, situação do consentimento e últimos 100 movimentos de pontos do cliente autenticado."""
     dados = fidelidade.consultar(session, user)

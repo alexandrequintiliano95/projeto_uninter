@@ -1,7 +1,7 @@
-# Execução do pytest em 23/11/2026 20:09 - Python 3.14.6
+# Execução do pytest em 23/11/2026 20:31 - Python 3.14.6
 # Comando: python -m pytest -v -W error
 ============================= test session starts =============================
-collecting ... collected 125 items
+collecting ... collected 126 items
 
 tests/test_api.py::test_health_and_public_catalog PASSED
 tests/test_api.py::test_login_and_missing_token PASSED
@@ -76,6 +76,7 @@ tests/test_api.py::test_catalog_change_does_not_alter_existing_order PASSED
 tests/test_api.py::test_order_accepts_roteiro_field_names PASSED
 tests/test_api.py::test_order_without_channel_points_to_roteiro_field_name PASSED
 tests/test_api.py::test_order_reads_points_from_roteiro_field_name PASSED
+tests/test_api.py::test_swagger_documents_errors_in_the_standard_format PASSED
 tests/test_migracoes.py::test_migracoes_geram_o_esquema_dos_modelos PASSED
 tests/test_migracoes.py::test_alembic_usa_o_database_url_do_ambiente PASSED
 tests/test_regras.py::test_cliente_so_usa_canais_de_cliente PASSED
@@ -129,4 +130,4 @@ tests/test_regras.py::test_resgate_de_100_pontos_vale_5_reais_ate_metade_do_pedi
 tests/test_regras.py::test_resgate_de_100_pontos_vale_5_reais_ate_metade_do_pedido[0-500-5000-RESGATE_INVALIDO] PASSED
 tests/test_regras.py::test_so_cliente_com_consentimento_ativo_resgata PASSED
 
-============================ 125 passed in 14.14s =============================
+============================ 126 passed in 14.17s =============================

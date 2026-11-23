@@ -15,6 +15,36 @@ def utc_iso(valor: datetime) -> str:
     return valor.isoformat() + "Z"
 
 
+class ErroDetalhe(BaseModel):
+    field: str = Field(description="Campo com problema, no formato do corpo ou da query (ex.: itens.0.quantidade).")
+    message: str
+
+
+class ErroResponse(BaseModel):
+    """Formato único de todas as respostas de erro da API."""
+
+    error: str = Field(description="Código do erro.", examples=["PERFIL_SEM_PERMISSAO"])
+    message: str = Field(description="Mensagem para o usuário.")
+    details: list[ErroDetalhe] = Field(description="Um item por campo inválido nos erros 422; vazio nos demais.")
+    timestamp: str = Field(description="Data e hora do erro em UTC (ISO 8601).", examples=["2026-11-23T18:16:23Z"])
+    path: str = Field(description="Caminho chamado.", examples=["/pedidos"])
+
+
+DESCRICAO_DOS_ERROS = {
+    401: "Não autenticado: token ausente, inválido ou expirado, ou usuário inativo.",
+    403: "Perfil ou unidade sem permissão para a operação.",
+    404: "Registro inexistente ou fora do escopo do usuário.",
+    409: "Conflito com o estado atual (estoque, status, pagamento ou cadastro).",
+    422: "Dados inválidos ou fora das regras de negócio.",
+    503: "Provedor de pagamento indisponível (falha simulada).",
+}
+
+
+def respostas_de_erro(*codigos: int) -> dict[int, dict]:
+    """Documenta no Swagger os erros que a rota pode devolver, todos no formato ErroResponse."""
+    return {codigo: {"model": ErroResponse, "description": DESCRICAO_DOS_ERROS[codigo]} for codigo in codigos}
+
+
 class LoginRequest(BaseModel):
     email: str
     senha: str
