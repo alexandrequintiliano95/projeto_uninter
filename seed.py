@@ -1,13 +1,14 @@
 from pwdlib import PasswordHash
 from sqlalchemy import select
+from sqlalchemy.orm import sessionmaker
 
 from app.db import SessionLocal
 from app.models import Produto, ProdutoUnidade, Unidade, Usuario
 
 
-def seed() -> None:
+def seed(session_factory: sessionmaker = SessionLocal) -> None:
     password = PasswordHash.recommended()
-    with SessionLocal.begin() as session:
+    with session_factory.begin() as session:
         if session.scalar(select(Unidade.id).limit(1)):
             print("Seed já aplicado!")
             return

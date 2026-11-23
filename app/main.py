@@ -1,20 +1,24 @@
 from datetime import datetime, timedelta, timezone
+from enum import StrEnum
 from os import getenv
 
 import jwt
-from fastapi import Depends, FastAPI, HTTPException, Query, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import Depends, FastAPI, Query, Request, status
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field
 from pwdlib import PasswordHash
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .db import SessionLocal
 from .models import Auditoria, ConsentimentoEvento, ItemPedido, Pagamento, Pedido, Produto, ProdutoUnidade, Unidade, Usuario
 
 
 app = FastAPI(title="API Raízes do Nordeste", version="0.1.0")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
+bearer_scheme = HTTPBearer(auto_error=False, bearerFormat="JWT", description="Cole o access_token devolvido por POST /auth/login.")
 password_hash = PasswordHash.recommended()
 JWT_SECRET = getenv("JWT_SECRET", "dev-only-change-me-32-byte-secret-key")
 JWT_ALGORITHM = "HS256"
@@ -50,6 +54,27 @@ class CardapioItem(BaseModel):
     saldo_disponivel: int
 
 
+class CanalPedido(StrEnum):
+    APP = "APP"
+    WEB = "WEB"
+    PICKUP = "PICKUP"
+    BALCAO = "BALCAO"
+    TOTEM = "TOTEM"
+
+
+class StatusPedido(StrEnum):
+    AGUARDANDO_PAGAMENTO = "AGUARDANDO_PAGAMENTO"
+    CONFIRMADO = "CONFIRMADO"
+    EM_PREPARO = "EM_PREPARO"
+    PRONTO = "PRONTO"
+    ENTREGUE = "ENTREGUE"
+    CANCELADO = "CANCELADO"
+
+
+CANAIS_CLIENTE = {CanalPedido.APP, CanalPedido.WEB, CanalPedido.PICKUP}
+CANAIS_EQUIPE = {CanalPedido.BALCAO, CanalPedido.TOTEM, CanalPedido.PICKUP}
+
+
 class PedidoItemRequest(BaseModel):
     produto_id: int = Field(gt=0)
     quantidade: int = Field(gt=0)
@@ -57,7 +82,7 @@ class PedidoItemRequest(BaseModel):
 
 class PedidoRequest(BaseModel):
     unidade_id: int = Field(gt=0)
-    canal_pedido: str
+    canal_pedido: CanalPedido
     itens: list[PedidoItemRequest] = Field(min_length=1)
 
 
@@ -83,8 +108,52 @@ def db_session():
         session.close()
 
 
-def error(code: str, message: str, http_status: int) -> HTTPException:
-    return HTTPException(status_code=http_status, detail={"error": code, "message": message})
+class ApiError(Exception):
+    """Erro de regra de negócio, devolvido no formato padrão de erro da API."""
+
+    def __init__(self, http_status: int, code: str, message: str) -> None:
+        super().__init__(message)
+        self.http_status = http_status
+        self.code = code
+        self.message = message
+
+
+def error(code: str, message: str, http_status: int) -> ApiError:
+    return ApiError(http_status, code, message)
+
+
+def error_response(request: Request, http_status: int, code: str, message: str, details: list[dict] | None = None, headers: dict[str, str] | None = None) -> JSONResponse:
+    timestamp = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+    content = {"error": code, "message": message, "details": details or [], "timestamp": timestamp, "path": request.url.path}
+    return JSONResponse(status_code=http_status, content=content, headers=headers)
+
+
+HTTP_ERRORS = {
+    status.HTTP_404_NOT_FOUND: ("RECURSO_NAO_ENCONTRADO", "Recurso não encontrado."),
+    status.HTTP_405_METHOD_NOT_ALLOWED: ("METODO_NAO_PERMITIDO", "Método HTTP não permitido para este recurso."),
+}
+
+
+@app.exception_handler(ApiError)
+async def api_error_handler(request: Request, exc: ApiError) -> JSONResponse:
+    return error_response(request, exc.http_status, exc.code, exc.message)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    details = [{"field": ".".join(str(part) for part in err["loc"][1:]) or str(err["loc"][0]), "message": err["msg"]} for err in exc.errors()]
+    return error_response(request, status.HTTP_422_UNPROCESSABLE_CONTENT, "DADOS_INVALIDOS", "Um ou mais campos da requisição são inválidos.", details)
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_error_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
+    code, message = HTTP_ERRORS.get(exc.status_code, ("ERRO_HTTP", str(exc.detail)))
+    return error_response(request, exc.status_code, code, message, headers=exc.headers)
+
+
+@app.exception_handler(Exception)
+async def unexpected_error_handler(request: Request, exc: Exception) -> JSONResponse:
+    return error_response(request, status.HTTP_500_INTERNAL_SERVER_ERROR, "ERRO_INTERNO", "Erro interno inesperado. Tente novamente mais tarde.")
 
 
 def create_token(user: Usuario) -> str:
@@ -93,11 +162,11 @@ def create_token(user: Usuario) -> str:
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
-def current_user(token: str | None = Depends(oauth2_scheme), session: Session = Depends(db_session)) -> Usuario:
-    if not token:
+def current_user(credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme), session: Session = Depends(db_session)) -> Usuario:
+    if not credentials:
         raise error("NAO_AUTENTICADO", "Token não informado.", status.HTTP_401_UNAUTHORIZED)
     try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         user_id = int(payload["sub"])
     except (jwt.InvalidTokenError, KeyError, TypeError, ValueError):
         raise error("TOKEN_INVALIDO", "Token inválido ou expirado.", status.HTTP_401_UNAUTHORIZED)
@@ -140,7 +209,12 @@ def ensure_order_access(order: Pedido, user: Usuario) -> None:
 
 
 def order_payload(session: Session, order: Pedido) -> dict:
-    items = list(session.scalars(select(ItemPedido).where(ItemPedido.pedido_id == order.id).order_by(ItemPedido.id)))
+    items = session.execute(
+        select(ItemPedido, ProdutoUnidade.produto_id)
+        .join(ProdutoUnidade, ProdutoUnidade.id == ItemPedido.produto_unidade_id)
+        .where(ItemPedido.pedido_id == order.id)
+        .order_by(ItemPedido.id)
+    ).all()
     return {
         "id": order.id,
         "unidade_id": order.unidade_id,
@@ -150,7 +224,7 @@ def order_payload(session: Session, order: Pedido) -> dict:
         "total_centavos": order.total_centavos,
         "motivo_cancelamento": order.motivo_cancelamento,
         "expira_em": order.expira_em.isoformat() + "Z",
-        "itens": [{"produto_id": item.produto_unidade_id, "nome": item.nome_produto, "quantidade": item.quantidade, "preco_unitario_centavos": item.preco_unitario_centavos} for item in items],
+        "itens": [{"produto_id": produto_id, "nome": item.nome_produto, "quantidade": item.quantidade, "preco_unitario_centavos": item.preco_unitario_centavos} for item, produto_id in items],
     }
 
 
@@ -190,11 +264,9 @@ def cardapio(unidade_id: int, page: int = Query(1, ge=1), limit: int = Query(20,
 
 @app.post("/pedidos", status_code=status.HTTP_201_CREATED)
 def create_order(data: PedidoRequest, user: Usuario = Depends(active_user), session: Session = Depends(db_session)) -> dict:
-    if data.canal_pedido not in {"APP", "WEB", "PICKUP", "BALCAO", "TOTEM"}:
-        raise error("CANAL_INVALIDO", "Canal de pedido inválido.", status.HTTP_422_UNPROCESSABLE_CONTENT)
-    if user.perfil == "CLIENTE" and data.canal_pedido not in {"APP", "WEB", "PICKUP"}:
+    if user.perfil == "CLIENTE" and data.canal_pedido not in CANAIS_CLIENTE:
         raise error("CANAL_NAO_PERMITIDO", "Canal não permitido para este perfil.", status.HTTP_403_FORBIDDEN)
-    if user.perfil in {"ATENDENTE", "GERENTE"} and data.canal_pedido not in {"BALCAO", "TOTEM", "PICKUP"}:
+    if user.perfil in {"ATENDENTE", "GERENTE"} and data.canal_pedido not in CANAIS_EQUIPE:
         raise error("CANAL_NAO_PERMITIDO", "Canal não permitido para este perfil.", status.HTTP_403_FORBIDDEN)
     if user.perfil == "COZINHA":
         raise error("PERFIL_SEM_PERMISSAO", "Perfil não pode criar pedidos.", status.HTTP_403_FORBIDDEN)
@@ -218,7 +290,7 @@ def create_order(data: PedidoRequest, user: Usuario = Depends(active_user), sess
         if offer.saldo_livre < item.quantidade:
             raise error("ESTOQUE_INSUFICIENTE", "Não há quantidade suficiente para um ou mais itens.", status.HTTP_409_CONFLICT)
         total += offer.preco_centavos * item.quantidade
-    order = Pedido(unidade_id=data.unidade_id, criado_por_id=user.id, cliente_id=user.id if user.perfil == "CLIENTE" else None, canal_pedido=data.canal_pedido, status="AGUARDANDO_PAGAMENTO", total_centavos=total, criado_em=now, atualizado_em=now, expira_em=now + timedelta(minutes=15))
+    order = Pedido(unidade_id=data.unidade_id, criado_por_id=user.id, cliente_id=user.id if user.perfil == "CLIENTE" else None, canal_pedido=data.canal_pedido.value, status="AGUARDANDO_PAGAMENTO", total_centavos=total, criado_em=now, atualizado_em=now, expira_em=now + timedelta(minutes=15))
     session.add(order)
     session.flush()
     for item in data.itens:
@@ -243,7 +315,7 @@ def get_order(pedido_id: int, user: Usuario = Depends(active_user), session: Ses
 
 
 @app.get("/pedidos")
-def list_orders(canal_pedido: str | None = None, pedido_status: str | None = None, page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100), user: Usuario = Depends(active_user), session: Session = Depends(db_session)) -> list[dict]:
+def list_orders(canal_pedido: CanalPedido | None = Query(None, alias="canalPedido"), pedido_status: StatusPedido | None = Query(None, alias="status"), page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100), user: Usuario = Depends(active_user), session: Session = Depends(db_session)) -> list[dict]:
     expire_orders(session, user.unidade_id if user.perfil != "CLIENTE" else None)
     query = select(Pedido).order_by(Pedido.id.desc()).offset((page - 1) * limit).limit(limit)
     if user.perfil == "CLIENTE":
@@ -251,9 +323,9 @@ def list_orders(canal_pedido: str | None = None, pedido_status: str | None = Non
     else:
         query = query.where(Pedido.unidade_id == user.unidade_id)
     if canal_pedido:
-        query = query.where(Pedido.canal_pedido == canal_pedido)
+        query = query.where(Pedido.canal_pedido == canal_pedido.value)
     if pedido_status:
-        query = query.where(Pedido.status == pedido_status)
+        query = query.where(Pedido.status == pedido_status.value)
     orders = list(session.scalars(query))
     session.commit()
     return [order_payload(session, order) for order in orders]
@@ -261,6 +333,8 @@ def list_orders(canal_pedido: str | None = None, pedido_status: str | None = Non
 
 @app.post("/pedidos/{pedido_id}/pagamentos/mock")
 def mock_payment(pedido_id: int, data: PagamentoRequest, user: Usuario = Depends(active_user), session: Session = Depends(db_session)) -> dict:
+    if user.perfil not in {"CLIENTE", "ATENDENTE", "GERENTE"}:
+        raise error("PERFIL_SEM_PERMISSAO", "Perfil não pode registrar pagamento.", status.HTTP_403_FORBIDDEN)
     if data.resultado not in {"APROVADO", "RECUSADO"}:
         raise error("RESULTADO_INVALIDO", "Resultado deve ser APROVADO ou RECUSADO.", status.HTTP_422_UNPROCESSABLE_CONTENT)
     order = session.get(Pedido, pedido_id)
@@ -302,7 +376,10 @@ def update_order_status(pedido_id: int, data: StatusRequest, user: Usuario = Dep
         raise error("PEDIDO_NAO_ENCONTRADO", "Pedido não encontrado.", status.HTTP_404_NOT_FOUND)
     ensure_order_access(order, user)
     allowed_roles = {"CONFIRMADO": {"COZINHA", "GERENTE"}, "EM_PREPARO": {"COZINHA", "GERENTE"}, "PRONTO": {"ATENDENTE", "GERENTE"}}
-    if data.status not in transitions or order.status != data.status or user.perfil not in allowed_roles[data.status]:
+    roles = allowed_roles.get(data.status)
+    if user.perfil == "CLIENTE" or (roles is not None and user.perfil not in roles):
+        raise error("PERFIL_SEM_PERMISSAO", "Perfil não pode executar esta mudança de status.", status.HTTP_403_FORBIDDEN)
+    if roles is None or order.status != data.status:
         raise error("TRANSICAO_INVALIDA", "Transição de status não permitida.", status.HTTP_409_CONFLICT)
     order.status = transitions[data.status]
     order.atualizado_em = datetime.now(timezone.utc).replace(tzinfo=None)

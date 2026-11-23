@@ -19,6 +19,6 @@
     {"name": "T08 Consultar pedido", "request": {"method": "GET", "header": [{"key": "Authorization", "value": "Bearer {{token}}"}], "url": "{{baseUrl}}/pedidos/{{pedidoId}}"}},
     {"name": "T09 Pagamento aprovado", "request": {"method": "POST", "header": [{"key": "Authorization", "value": "Bearer {{token}}"}, {"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\"resultado\":\"APROVADO\"}"}, "url": "{{baseUrl}}/pedidos/{{pedidoId}}/pagamentos/mock"}},
     {"name": "T10 Pagamento recusado", "request": {"method": "POST", "header": [{"key": "Authorization", "value": "Bearer {{token}}"}, {"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\"resultado\":\"RECUSADO\"}"}, "url": "{{baseUrl}}/pedidos/{{pedidoId}}/pagamentos/mock"}},
-    {"name": "T11 Filtro por canal", "request": {"method": "GET", "header": [{"key": "Authorization", "value": "Bearer {{token}}"}], "url": "{{baseUrl}}/pedidos?canal_pedido=APP"}}
+    {"name": "T11 Filtro por canal", "request": {"method": "GET", "header": [{"key": "Authorization", "value": "Bearer {{token}}"}], "url": "{{baseUrl}}/pedidos?canalPedido=APP"}}
   ]
 }

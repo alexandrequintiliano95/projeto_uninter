@@ -2,14 +2,25 @@
 
 Base local: `http://127.0.0.1:8000`.
 
-Autenticação protegida usa `Authorization: Bearer <token>`. O erro de domínio usa o formato abaixo dentro do campo `detail`:
+Autenticação protegida usa `Authorization: Bearer <token>`. No Swagger (`/docs`), faça `POST /auth/login`, copie o `access_token` e cole-o em **Authorize**.
+
+### Formato de erro
+
+Todos os erros (regra de negócio, validação, rota inexistente e falha interna) usam o mesmo JSON:
 
 ```json
 {
-  "error": "CODIGO_DO_ERRO",
-  "message": "Mensagem para o usuário."
+  "error": "DADOS_INVALIDOS",
+  "message": "Um ou mais campos da requisição são inválidos.",
+  "details": [{"field": "itens.0.quantidade", "message": "Input should be greater than 0"}],
+  "timestamp": "2026-11-23T18:16:23Z",
+  "path": "/pedidos"
 }
 ```
+
+- `details` é uma lista. Fica vazia em erros de regra de negócio e traz um item por campo em erros de validação (`422`).
+- `timestamp` está em UTC (ISO 8601) e `path` é o caminho chamado.
+- Códigos genéricos: `DADOS_INVALIDOS` (`422`), `RECURSO_NAO_ENCONTRADO` (`404` de rota), `METODO_NAO_PERMITIDO` (`405`) e `ERRO_INTERNO` (`500`, sem expor detalhes internos). Os demais códigos estão descritos em cada endpoint.
 
 ## Endpoints públicos
 
@@ -81,7 +92,7 @@ Erro: `404` quando a unidade não existe ou está inativa.
 
 ### POST `/pedidos`
 
-Cria um pedido e reserva o estoque por 15 minutos. Cliente só pode usar `APP`, `WEB` ou `PICKUP`. Atendente e gerente da própria unidade podem usar `BALCAO`, `TOTEM` ou `PICKUP`.
+Cria um pedido e reserva o estoque por 15 minutos. `canal_pedido` aceita `APP`, `WEB`, `PICKUP`, `BALCAO` ou `TOTEM`. Cliente só pode usar `APP`, `WEB` ou `PICKUP`. Atendente e gerente da própria unidade podem usar `BALCAO`, `TOTEM` ou `PICKUP`. Os itens da resposta trazem em `produto_id` o ID do produto do catálogo.
 
 Request:
 
@@ -119,9 +130,15 @@ Erros: `401`, `404` quando não pertence ao escopo do usuário.
 
 ### GET `/pedidos`
 
-Lista pedidos do cliente autenticado ou da unidade do funcionário autenticado. Query params: `canal_pedido`, `pedido_status`, `page` e `limit`.
+Lista pedidos do cliente autenticado ou da unidade do funcionário autenticado. Query params:
 
-Erros: `401` e `422` para paginação inválida.
+- `canalPedido`: `APP`, `WEB`, `PICKUP`, `BALCAO` ou `TOTEM`.
+- `status`: `AGUARDANDO_PAGAMENTO`, `CONFIRMADO`, `EM_PREPARO`, `PRONTO`, `ENTREGUE` ou `CANCELADO`.
+- `page` (a partir de 1) e `limit` (1 a 100).
+
+Exemplo: `GET /pedidos?canalPedido=TOTEM&status=CONFIRMADO`.
+
+Erros: `401` e `422` para filtro com valor desconhecido ou paginação inválida.
 
 ### POST `/pedidos/{pedido_id}/pagamentos/mock`
 
@@ -133,7 +150,9 @@ Registra o resultado simulado do pagamento. Body:
 
 `APROVADO` muda o pedido para `CONFIRMADO` e consome a reserva. `RECUSADO` muda o pedido para `CANCELADO` e devolve a reserva. Uma segunda chamada com resultado diferente retorna `409`.
 
-Erros: `401`, `404`, `409` para pedido fora do estado de pagamento ou resultado imutável e `422` para resultado inválido.
+Cliente, atendente e gerente podem registrar o pagamento. A cozinha recebe `403`, inclusive ao repetir um pagamento já registrado.
+
+Erros: `401`, `403` para perfil sem permissão, `404`, `409` para pedido fora do estado de pagamento ou resultado imutável e `422` para resultado inválido.
 
 ### PATCH `/pedidos/{pedido_id}/status`
 
@@ -145,7 +164,7 @@ Atualiza uma etapa do preparo ou da entrega. Body:
 
 Transições aceitas: `CONFIRMADO` para `EM_PREPARO` pela cozinha ou gerente, `EM_PREPARO` para `PRONTO` pela cozinha ou gerente, e `PRONTO` para `ENTREGUE` pelo atendente ou gerente.
 
-Erro: `409` para transição ou perfil incompatível.
+Erros: `403` (`PERFIL_SEM_PERMISSAO`) quando o perfil não pode fazer aquela transição, como cliente alterando status ou cozinha marcando entregue; `404` para pedido fora do escopo; `409` (`TRANSICAO_INVALIDA`) quando o pedido não está no status informado ou a transição não existe.
 
 ### GET `/me/consentimentos`
 
