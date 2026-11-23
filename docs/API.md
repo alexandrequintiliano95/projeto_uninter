@@ -120,7 +120,7 @@ Resposta `201`:
 }
 ```
 
-Erros: `401`, `403`, `404`, `409` para estoque insuficiente ou `422` para canal, quantidade ou itens inválidos.
+Erros: `401`, `403`, `404` para unidade inexistente ou produto inexistente, desativado ou sem oferta ativa na unidade (`PRODUTO_INDISPONIVEL`), `409` para estoque insuficiente ou `422` para canal, quantidade ou itens inválidos.
 
 ### GET `/pedidos/{pedido_id}`
 
@@ -152,19 +152,27 @@ Registra o resultado simulado do pagamento. Body:
 
 Cliente, atendente e gerente podem registrar o pagamento. A cozinha recebe `403`, inclusive ao repetir um pagamento já registrado.
 
-Erros: `401`, `403` para perfil sem permissão, `404`, `409` para pedido fora do estado de pagamento ou resultado imutável e `422` para resultado inválido.
+Um pedido com prazo de reserva vencido é cancelado (`PRAZO_EXPIRADO`) e o pagamento é recusado com `409` (`PEDIDO_SEM_PAGAMENTO`).
+
+Erros: `401`, `403` para perfil sem permissão, `404`, `409` para pedido fora do estado de pagamento (inclusive vencido) ou resultado imutável e `422` (`DADOS_INVALIDOS`) para `resultado` diferente de `APROVADO` ou `RECUSADO`.
 
 ### PATCH `/pedidos/{pedido_id}/status`
 
-Atualiza uma etapa do preparo ou da entrega. Body:
+Avança o pedido para a próxima etapa do preparo ou da entrega. O body informa o status de **destino**:
 
 ```json
-{"status":"CONFIRMADO"}
+{"status":"EM_PREPARO"}
 ```
 
-Transições aceitas: `CONFIRMADO` para `EM_PREPARO` pela cozinha ou gerente, `EM_PREPARO` para `PRONTO` pela cozinha ou gerente, e `PRONTO` para `ENTREGUE` pelo atendente ou gerente.
+| Destino | Status exigido no pedido | Perfis |
+| --- | --- | --- |
+| `EM_PREPARO` | `CONFIRMADO` | Cozinha ou gerente |
+| `PRONTO` | `EM_PREPARO` | Cozinha ou gerente |
+| `ENTREGUE` | `PRONTO` | Atendente ou gerente |
 
-Erros: `403` (`PERFIL_SEM_PERMISSAO`) quando o perfil não pode fazer aquela transição, como cliente alterando status ou cozinha marcando entregue; `404` para pedido fora do escopo; `409` (`TRANSICAO_INVALIDA`) quando o pedido não está no status informado ou a transição não existe.
+Repetir o status em que o pedido já está devolve `200` com o pedido como está, sem gravar nova auditoria. `CONFIRMADO` e `CANCELADO` não são aceitos nesta rota: dependem do pagamento, do cancelamento ou da expiração.
+
+Erros: `403` (`PERFIL_SEM_PERMISSAO`) quando o perfil não pode fazer aquela transição, como cliente alterando status ou cozinha marcando entregue; `404` para pedido fora do escopo; `409` (`TRANSICAO_INVALIDA`) quando o pedido não está no status exigido ou o destino não é aceito nesta rota; `422` para status desconhecido.
 
 ### GET `/me/consentimentos`
 
@@ -180,7 +188,7 @@ Request:
 {"finalidade":"FIDELIDADE","concedido":true,"versao_termo":"v1"}
 ```
 
-Erros: `401`, `403` para funcionário e `422` para finalidade inválida.
+Erros: `401`, `403` para funcionário e `422` (`DADOS_INVALIDOS`) para `finalidade` diferente de `FIDELIDADE` ou `MARKETING`.
 
 ### GET `/auditoria`
 
@@ -194,7 +202,7 @@ Erro: `403` para outros perfis.
 2. Consultar `/unidades/1/cardapio`.
 3. Criar pedido em `/pedidos`.
 4. Aprovar ou recusar em `/pedidos/{id}/pagamentos/mock`.
-5. Fazer login como cozinha e marcar `CONFIRMADO` para avançar a `EM_PREPARO`.
-6. Continuar com `PRONTO` e `ENTREGUE` usando os perfis permitidos.
+5. Fazer login como cozinha e enviar `{"status":"EM_PREPARO"}` e depois `{"status":"PRONTO"}`.
+6. Fazer login como atendente e enviar `{"status":"ENTREGUE"}`.
 
 O contrato acima descreve somente endpoints existentes no código. Fidelidade, promoções, cadastro de equipe e relatórios continuam como evolução conceitual.

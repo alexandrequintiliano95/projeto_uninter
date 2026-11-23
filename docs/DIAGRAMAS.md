@@ -88,10 +88,10 @@ sequenceDiagram
     Mock-->>API: resultado
     API->>Banco: grava pagamento, status e auditoria
     API-->>Cliente: pedido confirmado ou cancelado
-    Cozinha->>API: PATCH status CONFIRMADO
-    API->>Banco: muda para EM_PREPARO
-    Cozinha->>API: PATCH status EM_PREPARO
-    API->>Banco: muda para PRONTO
-    Atendente->>API: PATCH status PRONTO
-    API->>Banco: muda para ENTREGUE
+    Cozinha->>API: PATCH status {"status":"EM_PREPARO"}
+    API->>Banco: muda de CONFIRMADO para EM_PREPARO
+    Cozinha->>API: PATCH status {"status":"PRONTO"}
+    API->>Banco: muda de EM_PREPARO para PRONTO
+    Atendente->>API: PATCH status {"status":"ENTREGUE"}
+    API->>Banco: muda de PRONTO para ENTREGUE
 ```

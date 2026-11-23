@@ -1,8 +1,13 @@
 from datetime import datetime
 
+import jwt
 from fastapi.testclient import TestClient
+from sqlalchemy import update
+from sqlalchemy.orm import sessionmaker
 
-from app.main import app, db_session
+from app.api.deps import db_session
+from app.infrastructure.models import Pedido, Produto, ProdutoUnidade
+from app.main import app
 
 
 CLIENTE = ("cliente@raizes.local", "Cliente@123")
@@ -92,7 +97,7 @@ def test_kitchen_advances_paid_order(client: TestClient):
     order_id = order.json()["id"]
     assert client.post(f"/pedidos/{order_id}/pagamentos/mock", headers=client_headers, json={"resultado": "APROVADO"}).status_code == 200
     kitchen_headers = auth(client, COZINHA_RECIFE)
-    response = client.patch(f"/pedidos/{order_id}/status", headers=kitchen_headers, json={"status": "CONFIRMADO"})
+    response = client.patch(f"/pedidos/{order_id}/status", headers=kitchen_headers, json={"status": "EM_PREPARO"})
     assert response.status_code == 200
     assert response.json()["status"] == "EM_PREPARO"
 
@@ -161,19 +166,40 @@ def test_kitchen_cannot_repeat_existing_payment(client: TestClient):
 # --- Mudança de status: 403 para perfil, 409 para transição -------------------
 
 
+def test_order_goes_from_kitchen_to_delivery(client: TestClient):
+    order_id = create_paid_order(client)
+    kitchen_headers = auth(client, COZINHA_RECIFE)
+    steps = [(kitchen_headers, "EM_PREPARO"), (kitchen_headers, "PRONTO"), (auth(client, ATENDENTE_RECIFE), "ENTREGUE")]
+    for headers, target in steps:
+        response = client.patch(f"/pedidos/{order_id}/status", headers=headers, json={"status": target})
+        assert response.status_code == 200, response.text
+        assert response.json()["status"] == target
+
+
+def test_repeating_current_status_is_idempotent(client: TestClient):
+    order_id = create_paid_order(client)
+    kitchen_headers = auth(client, COZINHA_RECIFE)
+    first = client.patch(f"/pedidos/{order_id}/status", headers=kitchen_headers, json={"status": "EM_PREPARO"})
+    repeated = client.patch(f"/pedidos/{order_id}/status", headers=kitchen_headers, json={"status": "EM_PREPARO"})
+    assert (first.status_code, repeated.status_code) == (200, 200)
+    assert repeated.json()["status"] == "EM_PREPARO"
+    audit = client.get("/auditoria", headers=auth(client, GERENTE_RECIFE)).json()
+    assert [event["detalhes"] for event in audit if event["acao"] == "STATUS_ATUALIZADO" and event["entidade_id"] == order_id] == ["EM_PREPARO"]
+
+
 def test_kitchen_cannot_mark_order_delivered(client: TestClient):
     order_id = create_paid_order(client)
     kitchen_headers = auth(client, COZINHA_RECIFE)
-    for current in ("CONFIRMADO", "EM_PREPARO"):
-        assert client.patch(f"/pedidos/{order_id}/status", headers=kitchen_headers, json={"status": current}).status_code == 200
-    response = client.patch(f"/pedidos/{order_id}/status", headers=kitchen_headers, json={"status": "PRONTO"})
+    for target in ("EM_PREPARO", "PRONTO"):
+        assert client.patch(f"/pedidos/{order_id}/status", headers=kitchen_headers, json={"status": target}).status_code == 200
+    response = client.patch(f"/pedidos/{order_id}/status", headers=kitchen_headers, json={"status": "ENTREGUE"})
     assert_error(response, 403, "PERFIL_SEM_PERMISSAO", f"/pedidos/{order_id}/status")
     assert client.get(f"/pedidos/{order_id}", headers=kitchen_headers).json()["status"] == "PRONTO"
 
 
 def test_client_cannot_change_order_status(client: TestClient):
     order_id = create_paid_order(client)
-    response = client.patch(f"/pedidos/{order_id}/status", headers=auth(client, CLIENTE), json={"status": "CONFIRMADO"})
+    response = client.patch(f"/pedidos/{order_id}/status", headers=auth(client, CLIENTE), json={"status": "EM_PREPARO"})
     assert_error(response, 403, "PERFIL_SEM_PERMISSAO", f"/pedidos/{order_id}/status")
 
 
@@ -181,6 +207,21 @@ def test_skipping_a_step_is_conflict(client: TestClient):
     order_id = create_paid_order(client)
     response = client.patch(f"/pedidos/{order_id}/status", headers=auth(client, GERENTE_RECIFE), json={"status": "PRONTO"})
     assert_error(response, 409, "TRANSICAO_INVALIDA", f"/pedidos/{order_id}/status")
+
+
+def test_status_route_cannot_confirm_or_cancel(client: TestClient):
+    headers = auth(client, GERENTE_RECIFE)
+    order_id = create_order(client, headers, canal="BALCAO")["id"]
+    for target in ("CONFIRMADO", "CANCELADO"):
+        response = client.patch(f"/pedidos/{order_id}/status", headers=headers, json={"status": target})
+        assert_error(response, 409, "TRANSICAO_INVALIDA", f"/pedidos/{order_id}/status")
+
+
+def test_status_rejects_unknown_value(client: TestClient):
+    order_id = create_paid_order(client)
+    response = client.patch(f"/pedidos/{order_id}/status", headers=auth(client, GERENTE_RECIFE), json={"status": "VOANDO"})
+    body = assert_error(response, 422, "DADOS_INVALIDOS", f"/pedidos/{order_id}/status")
+    assert [detail["field"] for detail in body["details"]] == ["status"]
 
 
 # --- Itens devolvem o ID do produto do catálogo -------------------------------
@@ -237,3 +278,62 @@ def test_list_orders_rejects_unknown_filter_values(client: TestClient):
     headers = auth(client, CLIENTE)
     assert_error(client.get("/pedidos", headers=headers, params={"canalPedido": "FAX"}), 422, "DADOS_INVALIDOS", "/pedidos")
     assert_error(client.get("/pedidos", headers=headers, params={"status": "PERDIDO"}), 422, "DADOS_INVALIDOS", "/pedidos")
+
+
+# --- Valores fechados no Swagger e documentação das respostas -----------------
+
+
+def test_payment_rejects_unknown_result(client: TestClient):
+    headers = auth(client, CLIENTE)
+    order_id = create_order(client, headers)["id"]
+    response = client.post(f"/pedidos/{order_id}/pagamentos/mock", headers=headers, json={"resultado": "TALVEZ"})
+    body = assert_error(response, 422, "DADOS_INVALIDOS", f"/pedidos/{order_id}/pagamentos/mock")
+    assert [detail["field"] for detail in body["details"]] == ["resultado"]
+
+
+def test_consent_rejects_unknown_purpose(client: TestClient):
+    response = client.post("/me/consentimentos", headers=auth(client, CLIENTE), json={"finalidade": "SORTEIO", "concedido": True})
+    body = assert_error(response, 422, "DADOS_INVALIDOS", "/me/consentimentos")
+    assert [detail["field"] for detail in body["details"]] == ["finalidade"]
+
+
+def test_swagger_describes_order_response(client: TestClient):
+    openapi = client.get("/openapi.json").json()
+    schema = openapi["paths"]["/pedidos"]["post"]["responses"]["201"]["content"]["application/json"]["schema"]
+    properties = resolve_schema(openapi, schema)["properties"]
+    assert set(properties) == {"id", "unidade_id", "cliente_id", "canal_pedido", "status", "total_centavos", "motivo_cancelamento", "expira_em", "itens"}
+
+
+def test_token_with_invalid_subject_is_rejected(client: TestClient):
+    token = jwt.encode({"sub": "abc", "perfil": "CLIENTE"}, "dev-only-change-me-32-byte-secret-key", algorithm="HS256")
+    response = client.get("/pedidos", headers={"Authorization": f"Bearer {token}"})
+    assert_error(response, 401, "TOKEN_INVALIDO", "/pedidos")
+
+
+# --- Casos de borda do pedido --------------------------------------------------
+
+
+def test_expired_order_cannot_be_paid(client: TestClient, session_factory: sessionmaker):
+    headers = auth(client, CLIENTE)
+    order_id = create_order(client, headers)["id"]
+    with session_factory() as session:
+        session.execute(update(Pedido).where(Pedido.id == order_id).values(expira_em=datetime(2020, 1, 1)))
+        session.commit()
+    response = client.post(f"/pedidos/{order_id}/pagamentos/mock", headers=headers, json={"resultado": "APROVADO"})
+    assert_error(response, 409, "PEDIDO_SEM_PAGAMENTO", f"/pedidos/{order_id}/pagamentos/mock")
+    # Confere o banco antes de qualquer outra leitura pela API, que refaria a expiração.
+    with session_factory() as session:
+        order = session.get(Pedido, order_id)
+        assert (order.status, order.motivo_cancelamento) == ("CANCELADO", "PRAZO_EXPIRADO")
+        offer = session.get(ProdutoUnidade, 1)
+        assert (offer.saldo_livre, offer.saldo_reservado) == (20, 0)
+    audit = client.get("/auditoria", headers=auth(client, GERENTE_RECIFE)).json()
+    assert [event["acao"] for event in audit if event["entidade_id"] == order_id] == ["PEDIDO_EXPIRADO", "PEDIDO_CRIADO"]
+
+
+def test_inactive_product_is_unavailable(client: TestClient, session_factory: sessionmaker):
+    with session_factory() as session:
+        session.execute(update(Produto).where(Produto.id == 2).values(ativo=False))
+        session.commit()
+    response = client.post("/pedidos", headers=auth(client, CLIENTE), json={"unidade_id": 1, "canal_pedido": "APP", "itens": [{"produto_id": 2, "quantidade": 1}]})
+    assert_error(response, 404, "PRODUTO_INDISPONIVEL", "/pedidos")

@@ -2,8 +2,8 @@ from pwdlib import PasswordHash
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
-from app.db import SessionLocal
-from app.models import Produto, ProdutoUnidade, Unidade, Usuario
+from app.infrastructure.db import SessionLocal
+from app.infrastructure.models import Produto, ProdutoUnidade, Unidade, Usuario
 
 
 def seed(session_factory: sessionmaker = SessionLocal) -> None:
