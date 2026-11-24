@@ -176,8 +176,6 @@ A divisão em camadas está explicada em [docs/ARQUITETURA.md](docs/ARQUITETURA.
 - [Tratamento de dados pessoais (LGPD)](docs/LGPD.md)
 - [Regras de promoção (proposta, não implementada)](docs/PROMOCOES.md)
 - [Diagramas da solução: casos de uso, DER, classes e sequência](docs/DIAGRAMAS.md)
-- [Plano de execução](PLAN.md) e [registro da revisão do plano](PLAN-REVIEW-LOG.md)
-- [Roteiro do relatório acadêmico](docs/RELATORIO_MODELO.md)
 - [Relatório acadêmico em PDF](entrega/4250113_Projeto_Back_End.pdf) e [versão editável em DOCX](entrega/4250113_Projeto_Back_End.docx)
 
 ## Uso de IA

@@ -6,6 +6,8 @@ Base local: `http://127.0.0.1:8000`.
 
 Autenticação protegida usa `Authorization: Bearer <token>`. No Swagger (`/docs`), faça `POST /auth/login`, copie o `access_token` e cole-o em **Authorize**.
 
+No Swagger, cada rota mostra exemplos de requisição e de resposta com os dados do seed e um exemplo de cada erro que pode devolver, já no formato padrão.
+
 ### Formato de erro
 
 Todos os erros (regra de negócio, validação, rota inexistente e falha interna) usam o mesmo JSON:
@@ -165,6 +167,8 @@ Erros: `401`, `403`, `404` para unidade inexistente ou produto inexistente, desa
 
 Consulta o próprio pedido ou um pedido da unidade do funcionário autenticado. A consulta também libera reservas vencidas.
 
+Quando um funcionário consulta um pedido de cliente identificado, a auditoria registra `DADOS_CLIENTE_CONSULTADOS`, com o perfil de quem consultou (registro de acesso a dados pessoais, LGPD). O próprio cliente consultando o seu pedido não gera esse registro, e a listagem também não, para a consulta periódica da cozinha não inflar a auditoria.
+
 Erros: `401`, `404` quando não pertence ao escopo do usuário.
 
 ### GET `/pedidos`
@@ -310,7 +314,7 @@ Erros: `401`, `403` para funcionário e `422` (`DADOS_INVALIDOS`) para `finalida
 
 ### GET `/auditoria`
 
-Lista até 100 ações da própria unidade. Disponível apenas para gerente. Senhas, tokens e e-mails não são retornados.
+Lista até 100 ações da própria unidade. Disponível apenas para gerente. Senhas, tokens e e-mails não são retornados. A própria consulta fica registrada como `AUDITORIA_CONSULTADA` e aparece na consulta seguinte.
 
 Erro: `403` para outros perfis.
 

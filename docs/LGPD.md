@@ -74,6 +74,7 @@ Implementado:
   - a auditoria não guarda e-mail, senha nem token;
   - os erros não expõem detalhes internos.
 - **Auditoria:** registro das operações relevantes por unidade, consultável só pelo gerente da unidade.
+- **Registro de acesso a dados pessoais:** quando um funcionário consulta individualmente o pedido de um cliente identificado, a auditoria registra `DADOS_CLIENTE_CONSULTADOS`, com quem consultou e o perfil dele. A consulta da própria auditoria também fica registrada (`AUDITORIA_CONSULTADA`). A listagem de pedidos não gera registro, para a consulta periódica da cozinha não inflar a auditoria; nela, o pedido mostra só o ID do cliente.
 
 Proposta para produção: HTTPS obrigatório, banco servidor com cópias de segurança criptografadas, gestão de segredos, limite de tentativas de login e monitoramento de acessos.
 

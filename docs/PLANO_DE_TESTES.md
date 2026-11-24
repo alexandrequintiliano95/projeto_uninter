@@ -5,7 +5,7 @@
 Este plano lista os cenários que comprovam as regras da API, cada um com a evidência que o executa. Há duas formas de execução que se complementam:
 
 - **pytest** (`tests/`): testes automatizados que sobem a API em memória sobre um banco SQLite temporário, criado do zero para cada teste. Não usam nem alteram o `raizes.db`.
-- **Postman** (`postman/raizes-backend.postman_collection.json`): 54 requisições em 7 pastas, com asserções em todas. Rodam contra a API em execução, na ordem das pastas.
+- **Postman** (`postman/raizes-backend.postman_collection.json`): 60 requisições em 7 pastas, com asserções em todas. Rodam contra a API em execução, na ordem das pastas.
 
 ## Pré-condições gerais
 
@@ -37,7 +37,7 @@ Este plano lista os cenários que comprovam as regras da API, cada um com a evid
 | CT09 | Pagamento recusado | Pedido aguardando pagamento | Pagamento mock com `RECUSADO` | `200`, pedido `CANCELADO` (`PAGAMENTO_RECUSADO`); reserva devolvida | Postman X05; pytest `test_create_order_and_reject_payment` |
 | CT10 | Entrada de estoque | Gerente da unidade autenticado | `POST /unidades/1/estoque/movimentacoes` com `ENTRADA` de 10 e motivo | `201`, saldo livre aumenta 10; histórico e auditoria registrados | Postman E01, E05; pytest `test_manager_registers_stock_entry` |
 | CT11 | Acúmulo e resgate de pontos | Consentimento `FIDELIDADE` concedido | Pedido de R$ 113,40 pago; depois pedido de R$ 37,80 com `pontos_resgatados: 100` | 113 pontos creditados; desconto de R$ 5,00 (total R$ 32,80); pontos devolvidos se o pedido for cancelado | Postman F01 a F09; pytest `test_points_become_discount_and_paid_value_earns_points`, `test_cancelled_order_returns_redeemed_points` |
-| CT12 | Auditoria do gerente | Operações feitas na unidade | `GET /auditoria` com o gerente | `200` com `PEDIDO_CRIADO`, `PAGAMENTO_MOCK`, `STATUS_ATUALIZADO`, `ESTOQUE_AJUSTADO`, sem e-mail, senha ou token | Postman U01; pytest `test_client_consent_and_manager_audit` |
+| CT12 | Auditoria do gerente e registro de acesso | Operações feitas na unidade; atendente consultou um pedido de cliente | `GET /auditoria` com o gerente | `200` com `PEDIDO_CRIADO`, `PAGAMENTO_MOCK`, `STATUS_ATUALIZADO`, `ESTOQUE_AJUSTADO`, o acesso `DADOS_CLIENTE_CONSULTADOS` do atendente e a consulta anterior `AUDITORIA_CONSULTADA`, sem e-mail, senha ou token | Postman U01, U04, U05; pytest `test_client_consent_and_manager_audit`, `test_staff_reading_a_client_order_is_audited`, `test_audit_consultation_is_itself_audited` |
 
 ## Cenários negativos
 
@@ -60,8 +60,12 @@ Este plano lista os cenários que comprovam as regras da API, cada um com a evid
 | CT27 | Ajuste de estoque sem permissão | Atendente ou gerente de outra unidade | `POST /unidades/1/estoque/movimentacoes` | `403` `PERFIL_SEM_PERMISSAO` ou `UNIDADE_NAO_PERMITIDA` | Postman E03, E04; pytest `test_only_manager_of_the_unit_moves_stock` |
 | CT28 | Resgate fora das regras | Cliente com pontos | `pontosResgatados` 150, acima do saldo ou acima de 50% | `422` `DADOS_INVALIDOS`, `409` `SALDO_PONTOS_INSUFICIENTE` ou `422` `DESCONTO_ACIMA_DO_LIMITE` | Postman F07; pytest `test_redemption_limits` |
 | CT29 | Auditoria por cliente | Cliente autenticado | `GET /auditoria` | `403` `PERFIL_SEM_PERMISSAO` | Postman U02; pytest `test_client_consent_and_manager_audit` |
+| CT30 | Campo obrigatório ausente | Cliente autenticado | Pedido sem `canalPedido` | `422` `DADOS_INVALIDOS`, campo `canalPedido` em `details` | Postman P19; pytest `test_order_without_channel_points_to_roteiro_field_name` |
+| CT31 | Quantidade negativa | Cliente autenticado | Pedido com `quantidade: -1` | `422` `DADOS_INVALIDOS`, campo `itens.0.quantidade` em `details` | Postman P20; pytest `test_negative_quantity_points_to_the_item_field` |
+| CT32 | E-mail em formato inválido | Nenhuma (rota pública) | `POST /auth/cadastro` com `email: "nao-e-email"` | `422` `DADOS_INVALIDOS`, campo `email` em `details` | Postman A11; pytest `test_signup_validates_name_and_email_format` |
+| CT33 | Pedido com produto inexistente | Cliente autenticado | Pedido com `produtoId` 999 | `404` `PRODUTO_INDISPONIVEL`, sem reservar nada | Postman P21; pytest `test_product_without_offer_in_the_unit_is_unavailable`, `test_inactive_product_is_unavailable` |
 
-Toda resposta de erro também é conferida por um teste geral da coleção Postman: ela precisa ter exatamente os campos `error`, `message`, `details`, `timestamp` e `path`. Na execução registrada, esse teste rodou em 22 respostas de erro.
+Toda resposta de erro também é conferida por um teste geral da coleção Postman: ela precisa ter exatamente os campos `error`, `message`, `details`, `timestamp` e `path`. Na execução registrada, esse teste rodou em 26 respostas de erro.
 
 ## Como executar
 
@@ -99,8 +103,8 @@ A coleção guarda os IDs criados em variáveis (`pedidoId`, `pedidoCanceladoId`
 
 | Execução | Resultado | Evidência |
 | --- | --- | --- |
-| pytest | 126 testes passaram, 0 falhas | [evidencias/pytest-execucao.txt](evidencias/pytest-execucao.txt) |
-| Newman, 1ª execução (banco recém-criado) | 54 requisições, 131 asserções, 0 falhas | [evidencias/newman-execucao.txt](evidencias/newman-execucao.txt) |
-| Newman, 2ª execução seguida (mesmo banco) | 54 requisições, 131 asserções, 0 falhas | Execução de conferência, não arquivada |
+| pytest | 131 testes passaram, 0 falhas | [evidencias/pytest-execucao.txt](evidencias/pytest-execucao.txt) |
+| Newman, 1ª execução (banco recém-criado) | 60 requisições, 150 asserções, 0 falhas | [evidencias/newman-execucao.txt](evidencias/newman-execucao.txt) |
+| Newman, 2ª execução seguida (mesmo banco) | 60 requisições, 150 asserções, 0 falhas | Execução de conferência, não arquivada |
 
 A execução do Newman usou a porta 8765 e um banco descartável, para não alterar o `raizes.db` local.

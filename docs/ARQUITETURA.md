@@ -6,7 +6,7 @@ Este documento descreve como o código da API é dividido. Ele também serve de 
 
 ## Por que separar
 
-Até esta separação, toda a API ficava em `app/main.py`: rotas, regras de negócio, consultas ao banco, JWT e formato de erro. O roteiro pede separação em camadas, e o PLAN.md já previa os módulos `api`, `application`, `domain` e `infrastructure`. Com a separação:
+Até esta separação, toda a API ficava em `app/main.py`: rotas, regras de negócio, consultas ao banco, JWT e formato de erro. O roteiro pede a separação nas camadas Domain, Application, Infrastructure e API, que aqui viraram os módulos `domain`, `application`, `infrastructure` e `api`. Com a separação:
 
 - as regras de negócio ficam em um lugar só e não dependem de FastAPI nem de SQLAlchemy;
 - as funcionalidades que ainda faltam (cadastro, estoque, cancelamento, falha 503, fidelidade) entram na camada certa desde o início;
@@ -24,7 +24,7 @@ Até esta separação, toda a API ficava em `app/main.py`: rotas, regras de neg�
 | --- | --- | --- | --- |
 | **Camadas diretas (escolhida)** | O domínio tem enums, erros e regras puras. A aplicação tem os casos de uso e chama repositórios concretos da infraestrutura. A API tem rotas, schemas e a conversão de erro para HTTP. | Pouco código a mais, fácil de explicar e de manter até a entrega. | A aplicação depende das classes concretas do banco. |
 | Portas e adaptadores | O domínio tem entidades próprias (dataclasses). A aplicação define interfaces de repositório e a infraestrutura as implementa, convertendo ORM em entidade. | Inversão de dependência completa; regras testáveis sem banco. | Duplica modelos e mapeamentos, com cerca do dobro de código. |
-| Divisão por funcionalidade | Pastas `pedidos/`, `auth/` etc., cada uma com rota, serviço e consulta. | Agrupa o que muda junto. | Não mostra as camadas que o roteiro e o PLAN.md pedem. |
+| Divisão por funcionalidade | Pastas `pedidos/`, `auth/` etc., cada uma com rota, serviço e consulta. | Agrupa o que muda junto. | Não mostra as camadas que o roteiro pede. |
 
 A escolha foi das camadas diretas, feita pelo autor em 23/11/2026, a partir das alternativas apresentadas pelo assistente de IA (Claude Code).
 

@@ -113,8 +113,8 @@ Todo erro sai no mesmo formato: `error`, `message`, `details`, `timestamp` e `pa
 # 9. Testes e evidências
 
 - **Testes automatizados (pytest):** regras de domínio, API e migrações, cada teste com banco temporário próprio.
-- **Coleção Postman:** 54 requisições em 7 pastas, com asserções em todas. Executada com o Newman: 131 asserções, nenhuma falha.
-- **Plano de testes:** 12 cenários positivos e 17 negativos, cada um ligado à requisição e ao teste que o comprovam.
+- **Coleção Postman:** 60 requisições em 7 pastas, com asserções em todas. Executada com o Newman: 150 asserções, nenhuma falha.
+- **Plano de testes:** 12 cenários positivos e 21 negativos, cada um ligado à requisição e ao teste que o comprovam.
 - **Reprodução:** o README foi seguido do zero numa cópia limpa do projeto, com instalação, migração, seed e testes.
 
 ---
@@ -129,10 +129,10 @@ Parte do código e da documentação foi elaborada com apoio de IA (Claude Code)
 
 O relatório em ABNT já está em `entrega/`, em PDF e em DOCX. Faltam só os pontos que dependem do autor:
 
-- Revisar os textos com as próprias palavras, principalmente a conclusão do relatório. <!-- ajuste aqui e apague o comentario -->
-- Conferir no AVA as normas, o nome do arquivo e o prazo. <!-- ajuste aqui e apague o comentario -->
-- Conferir o acesso público ao repositório. <!-- ajuste aqui e apague o comentario -->
-- Preencher o nome do professor e conferir o polo e o semestre. <!-- ajuste aqui e apague o comentario -->
+- Revisar os textos com as próprias palavras, principalmente a conclusão do relatório.  
+- Conferir no AVA as normas, o nome do arquivo e o prazo.  
+- Conferir o acesso público ao repositório.  
+- Preencher o nome do professor e conferir o polo e o semestre.  
 
 ---
 
