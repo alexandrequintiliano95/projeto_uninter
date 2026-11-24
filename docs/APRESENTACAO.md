@@ -127,14 +127,15 @@ Parte do código e da documentação foi elaborada com apoio de IA (Claude Code)
 
 # 11. O que ainda falta
 
-- Gerar o PDF acadêmico em ABNT, com as evidências e imagens.
-- Revisar os textos com as próprias palavras.
-- Conferir no AVA as normas, o nome do arquivo e o prazo.
-- Conferir o acesso público ao repositório.
-- Preencher o nome do professor.
+O relatório em ABNT já está em `entrega/`, em PDF e em DOCX. Faltam só os pontos que dependem do autor:
+
+- Revisar os textos com as próprias palavras, principalmente a conclusão do relatório. <!-- ajuste aqui e apague o comentario -->
+- Conferir no AVA as normas, o nome do arquivo e o prazo. <!-- ajuste aqui e apague o comentario -->
+- Conferir o acesso público ao repositório. <!-- ajuste aqui e apague o comentario -->
+- Preencher o nome do professor e conferir o polo e o semestre. <!-- ajuste aqui e apague o comentario -->
 
 ---
 
 # Encerramento
 
-O back-end cobre o fluxo completo do pedido, com estoque, pagamento simulado, fidelidade e LGPD, e está testado e documentado. Falta transformar essa base em relatório acadêmico.
+O back-end cobre o fluxo completo do pedido, com estoque, pagamento simulado, fidelidade e LGPD, e está testado e documentado, com o relatório acadêmico pronto em `entrega/`.
