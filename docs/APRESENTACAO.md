@@ -127,12 +127,9 @@ Parte do código e da documentação foi elaborada com apoio de IA (Claude Code)
 
 # 11. O que ainda falta
 
-O relatório em ABNT já está em `entrega/`, em PDF e em DOCX. Faltam só os pontos que dependem do autor:
+O relatório em ABNT está pronto em `entrega/`, em PDF e em DOCX, e o repositório está público no GitHub. Falta só:
 
-- Revisar os textos com as próprias palavras, principalmente a conclusão do relatório.  
-- Conferir no AVA as normas, o nome do arquivo e o prazo.  
-- Conferir o acesso público ao repositório.  
-- Preencher o nome do professor e conferir o polo e o semestre.  
+- Conferir no AVA as normas, o padrão do nome do arquivo e o prazo de entrega.
 
 ---
 
