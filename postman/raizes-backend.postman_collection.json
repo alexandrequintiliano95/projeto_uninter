@@ -364,6 +364,36 @@
               }
             }
           ]
+        },
+        {
+          "name": "A11 Cadastro com e-mail inválido",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/cadastro",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nome\": \"E-mail inválido\", \"email\": \"nao-e-email\", \"senha\": \"Segura123\", \"aceite_termos\": true}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', () => pm.response.to.have.status(422));",
+                  "pm.test('Código de erro DADOS_INVALIDOS', () => pm.expect(pm.response.json().error).to.eql('DADOS_INVALIDOS'));",
+                  "pm.test('Aponta o campo email', () => pm.expect(pm.response.json().details.map(d => d.field)).to.include('email'));"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -985,6 +1015,107 @@
                 "exec": [
                   "pm.test('Status 422', () => pm.response.to.have.status(422));",
                   "pm.test('Código de erro DADOS_INVALIDOS', () => pm.expect(pm.response.json().error).to.eql('DADOS_INVALIDOS'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P19 Pedido sem canalPedido",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"unidadeId\": 1, \"itens\": [{\"produtoId\": 1, \"quantidade\": 1}]}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', () => pm.response.to.have.status(422));",
+                  "pm.test('Código de erro DADOS_INVALIDOS', () => pm.expect(pm.response.json().error).to.eql('DADOS_INVALIDOS'));",
+                  "pm.test('Aponta o campo obrigatório canalPedido', () => pm.expect(pm.response.json().details[0].field).to.eql('canalPedido'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P20 Pedido com quantidade negativa",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"unidadeId\": 1, \"canalPedido\": \"APP\", \"itens\": [{\"produtoId\": 1, \"quantidade\": -1}]}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', () => pm.response.to.have.status(422));",
+                  "pm.test('Código de erro DADOS_INVALIDOS', () => pm.expect(pm.response.json().error).to.eql('DADOS_INVALIDOS'));",
+                  "pm.test('Aponta a quantidade do item', () => pm.expect(pm.response.json().details[0].field).to.eql('itens.0.quantidade'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "P21 Pedido com produto inexistente",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenCliente}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"unidadeId\": 1, \"canalPedido\": \"APP\", \"itens\": [{\"produtoId\": 999, \"quantidade\": 1}]}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Código de erro PRODUTO_INDISPONIVEL', () => pm.expect(pm.response.json().error).to.eql('PRODUTO_INDISPONIVEL'));"
                 ]
               }
             }
@@ -1685,6 +1816,57 @@
                 "exec": [
                   "pm.test('Status 200', () => pm.response.to.have.status(200));",
                   "pm.test('Nenhum evento do pedido de Recife', () => pm.expect(pm.response.json().filter(e => e.tipo_entidade === 'PEDIDO' && e.entidade_id === Number(pm.collectionVariables.get('pedidoId')))).to.be.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "U04 Atendente consulta o pedido de um cliente",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAtendente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/pedidos/{{pedidoId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "U05 Auditoria registra o acesso aos dados do cliente",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenGerente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/auditoria"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const eventos = pm.response.json();",
+                  "pm.test('Acesso do atendente ao pedido registrado', () => pm.expect(eventos.some(e => e.acao === 'DADOS_CLIENTE_CONSULTADOS' && e.entidade_id === Number(pm.collectionVariables.get('pedidoId')) && e.detalhes === 'ATENDENTE')).to.be.true);",
+                  "pm.test('Consulta anterior da auditoria registrada', () => pm.expect(eventos.map(e => e.acao)).to.include('AUDITORIA_CONSULTADA'));"
                 ]
               }
             }

@@ -9,7 +9,7 @@ from app.domain import regras
 router = APIRouter(tags=["Fidelidade"])
 
 
-@router.get("/me/fidelidade", response_model=FidelidadeResponse, responses=respostas_de_erro(401, 403), summary="Consultar saldo e extrato de pontos")
+@router.get("/me/fidelidade", response_model=FidelidadeResponse, responses=respostas_de_erro(401, 403, caminho="/me/fidelidade", exemplos={403: ("PERFIL_SEM_PERMISSAO", "Somente clientes participam do programa de fidelidade.")}), summary="Consultar saldo e extrato de pontos")
 def loyalty_statement(user: UsuarioAtual, session: Sessao) -> FidelidadeResponse:
     """Saldo, situação do consentimento e últimos 100 movimentos de pontos do cliente autenticado."""
     dados = fidelidade.consultar(session, user)

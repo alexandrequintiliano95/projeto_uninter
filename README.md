@@ -85,7 +85,7 @@ python seed.py
 uvicorn app.main:app --reload
 ```
 
-A documentação interativa (Swagger) fica em http://127.0.0.1:8000/docs. Para usar as rotas protegidas:
+A documentação interativa (Swagger) fica em http://127.0.0.1:8000/docs. Cada rota mostra exemplos de requisição, de resposta e de cada erro. Para usar as rotas protegidas:
 
 1. Chame `POST /auth/login` com um dos usuários abaixo.
 2. Copie o `access_token` da resposta.
@@ -123,7 +123,7 @@ Execute nesta ordem:
    npx newman run postman/raizes-backend.postman_collection.json
    ```
 
-   São 54 requisições em 7 pastas, com asserções em todas. A coleção pode ser executada várias vezes sobre o mesmo banco.
+   São 60 requisições em 7 pastas, com asserções em todas. A coleção pode ser executada várias vezes sobre o mesmo banco.
 
 Os cenários positivos e negativos, as evidências de execução e os detalhes estão no [plano de testes](docs/PLANO_DE_TESTES.md).
 

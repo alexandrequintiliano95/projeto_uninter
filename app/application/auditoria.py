@@ -8,6 +8,10 @@ from app.infrastructure.repositorios import AuditoriaRepositorio
 
 
 def listar(session: Session, usuario: Usuario) -> list[Auditoria]:
-    """Até 100 eventos mais recentes da unidade do gerente."""
+    """Até 100 eventos mais recentes da unidade do gerente. A própria consulta fica registrada (aparece na próxima)."""
     exigir_perfil(usuario.perfil, frozenset({Perfil.GERENTE}), "Somente gerentes consultam auditoria.")
-    return AuditoriaRepositorio(session).da_unidade(usuario.unidade_id)
+    repositorio = AuditoriaRepositorio(session)
+    eventos = repositorio.da_unidade(usuario.unidade_id)
+    repositorio.registrar(usuario.id, usuario.unidade_id, "AUDITORIA_CONSULTADA", "UNIDADE", usuario.unidade_id)
+    session.commit()
+    return eventos

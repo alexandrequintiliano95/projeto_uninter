@@ -8,13 +8,13 @@ from app.application import auth
 router = APIRouter(tags=["Autenticação"])
 
 
-@router.post("/auth/cadastro", status_code=status.HTTP_201_CREATED, response_model=CadastroResponse, responses=respostas_de_erro(409, 422), summary="Cadastrar cliente")
+@router.post("/auth/cadastro", status_code=status.HTTP_201_CREATED, response_model=CadastroResponse, responses=respostas_de_erro(409, 422, caminho="/auth/cadastro", exemplos={409: ("EMAIL_JA_CADASTRADO", "Já existe uma conta com este e-mail."), 422: ("TERMOS_NAO_ACEITOS", "É preciso aceitar os termos de uso para criar a conta.")}), summary="Cadastrar cliente")
 def signup(data: CadastroRequest, session: Sessao) -> CadastroResponse:
     """Cadastro público de cliente. Perfil e unidade enviados no corpo são ignorados: a conta nasce como CLIENTE."""
     usuario = auth.cadastrar_cliente(session, data.nome, data.email, data.senha, data.aceite_termos, data.aceita_fidelidade, data.aceita_marketing)
     return CadastroResponse.model_validate(usuario)
 
 
-@router.post("/auth/login", response_model=LoginResponse, responses=respostas_de_erro(401, 422), summary="Fazer login")
+@router.post("/auth/login", response_model=LoginResponse, responses=respostas_de_erro(401, 422, caminho="/auth/login", exemplos={401: ("CREDENCIAIS_INVALIDAS", "E-mail ou senha inválidos.")}, campo_invalido=("senha", "Field required")), summary="Fazer login")
 def login(data: LoginRequest, session: Sessao) -> LoginResponse:
     return LoginResponse.model_validate(auth.autenticar(session, data.email, data.senha))

@@ -766,3 +766,73 @@ def test_swagger_documents_errors_in_the_standard_format(client: TestClient):
     login = openapi["paths"]["/auth/login"]["post"]
     assert error_schema_properties(openapi, login, "401") == formato
     assert "HTTPValidationError" not in openapi["components"]["schemas"]
+
+
+def _audit_actions(client: TestClient, headers: dict[str, str], action: str) -> list[dict]:
+    return [event for event in client.get("/auditoria", headers=headers).json() if event["acao"] == action]
+
+
+def test_staff_reading_a_client_order_is_audited(client: TestClient):
+    client_headers = auth(client, CLIENTE)
+    order_id = create_order(client, client_headers)["id"]
+    manager = auth(client, GERENTE_RECIFE)
+
+    # O próprio cliente consulta o pedido: não é acesso de terceiro, não gera registro.
+    assert client.get(f"/pedidos/{order_id}", headers=client_headers).status_code == 200
+    # A listagem também não gera registro, para a consulta periódica da cozinha não inflar a auditoria.
+    assert client.get("/pedidos", headers=manager).status_code == 200
+    assert _audit_actions(client, manager, "DADOS_CLIENTE_CONSULTADOS") == []
+
+    assert client.get(f"/pedidos/{order_id}", headers=auth(client, ATENDENTE_RECIFE)).status_code == 200
+    accesses = _audit_actions(client, manager, "DADOS_CLIENTE_CONSULTADOS")
+    assert [(event["tipo_entidade"], event["entidade_id"], event["detalhes"]) for event in accesses] == [("PEDIDO", order_id, "ATENDENTE")]
+
+
+def test_order_without_identified_client_is_not_audited_as_personal_data(client: TestClient):
+    attendant = auth(client, ATENDENTE_RECIFE)
+    order_id = create_order(client, attendant, canal="BALCAO")["id"]
+    assert client.get(f"/pedidos/{order_id}", headers=attendant).status_code == 200
+    assert _audit_actions(client, auth(client, GERENTE_RECIFE), "DADOS_CLIENTE_CONSULTADOS") == []
+
+
+def test_audit_consultation_is_itself_audited(client: TestClient):
+    manager = auth(client, GERENTE_RECIFE)
+    assert client.get("/auditoria", headers=manager).status_code == 200
+    latest = client.get("/auditoria", headers=manager).json()[0]
+    assert (latest["acao"], latest["tipo_entidade"], latest["entidade_id"]) == ("AUDITORIA_CONSULTADA", "UNIDADE", 1)
+
+
+def test_negative_quantity_points_to_the_item_field(client: TestClient):
+    response = client.post("/pedidos", headers=auth(client, CLIENTE), json={"unidadeId": 1, "canalPedido": "APP", "itens": [{"produtoId": 1, "quantidade": -1}]})
+    body = assert_error(response, 422, "DADOS_INVALIDOS", "/pedidos")
+    assert [detail["field"] for detail in body["details"]] == ["itens.0.quantidade"]
+
+
+def _response_schema(openapi: dict, response: dict) -> dict | None:
+    schema = response.get("content", {}).get("application/json", {}).get("schema")
+    if not schema:
+        return None
+    if schema.get("type") == "array":
+        schema = schema["items"]
+    return resolve_schema(openapi, schema) if "$ref" in schema else None
+
+
+def test_swagger_shows_realistic_examples(client: TestClient):
+    openapi = client.get("/openapi.json").json()
+    create = openapi["paths"]["/pedidos"]["post"]
+    body = resolve_schema(openapi, create["requestBody"]["content"]["application/json"]["schema"])
+    assert body["examples"][0] == {"unidadeId": 1, "canalPedido": "TOTEM", "itens": [{"produtoId": 1, "quantidade": 2}], "pontosResgatados": 0}
+    assert _response_schema(openapi, create["responses"]["201"])["examples"][0]["status"] == "AGUARDANDO_PAGAMENTO"
+    assert create["responses"]["409"]["content"]["application/json"]["example"]["error"] == "ESTOQUE_INSUFICIENTE"
+    assert create["responses"]["422"]["content"]["application/json"]["example"]["details"][0]["field"] == "canalPedido"
+
+    for path, operations in openapi["paths"].items():
+        for method, operation in operations.items():
+            if "requestBody" in operation:
+                assert resolve_schema(openapi, operation["requestBody"]["content"]["application/json"]["schema"]).get("examples"), (method, path)
+            for code, response in operation["responses"].items():
+                if code.startswith(("4", "5")):
+                    example = response["content"]["application/json"]["example"]
+                    assert set(example) == {"error", "message", "details", "timestamp", "path"}, (method, path, code)
+                elif code.startswith("2") and (schema := _response_schema(openapi, response)) is not None:
+                    assert schema.get("examples"), (method, path, code)

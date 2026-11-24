@@ -164,6 +164,10 @@ def criar_pedido(session: Session, usuario: Usuario, unidade_id: int, canal: Can
 def consultar_pedido(session: Session, usuario: Usuario, pedido_id: int) -> PedidoDetalhado:
     expirar_pedidos(session, _unidade_do_escopo(usuario))
     pedido = _pedido_acessivel(session, usuario, pedido_id)
+    if pedido.cliente_id is not None and usuario.perfil != Perfil.CLIENTE:
+        # LGPD: um funcionário viu o pedido de um cliente identificado. A listagem não gera registro,
+        # para a consulta periódica da cozinha não inflar a auditoria; a consulta individual, sim.
+        AuditoriaRepositorio(session).registrar(usuario.id, pedido.unidade_id, "DADOS_CLIENTE_CONSULTADOS", "PEDIDO", pedido.id, usuario.perfil)
     session.commit()
     return _detalhar(session, pedido)
 
